@@ -4,9 +4,11 @@
 #
 # Three data sources sharing common demographic parameters:
 #   (1) ABUNDANCE   : volunteer wetland counts, 2014-2025 (relative index)
-#   (2) SURVIVAL    : adult CJS encounter histories, 2010-2023, + individual
+#   (2) SURVIVAL    : adult CJS encounter histories, 2010-2026, + individual
 #                     covariates (sex: F/M/Unknown; tag: none/geolocator/GPS)
-#   (3) PRODUCTIVITY: per-pair fecundity (chicks/pair), 2018-2023
+#                     (the 2025-2026 interval falls outside the count series
+#                     and is pooled into its own baseline, phi_post -- see 1d)
+#   (3) PRODUCTIVITY: per-pair fecundity (chicks/pair), 2018-2026
 #
 # Survival structure:
 #   logit(phi[i,t]) = lphi_base[t] + bSex_phi[sex_i] + bTag_phi[tag_i]
@@ -44,10 +46,10 @@ log_et <- log_et - mean(log_et)
 log_ed <- log1p(dc$ed)
 log_ed <- log_ed - mean(log_ed)
 
-# ---- 1b. Survival (CJS) + covariates, modern era 2010-2023 -----------------
+# ---- 1b. Survival (CJS) + covariates, modern era 2010-2026 -----------------
 prep_cjs_cov <- function(
-  eh_path = "LEYE_95_25_EH.csv",
-  cov_path = "LEYE_95_25_covs.csv"
+  eh_path = "data/LEYE_95_26_EH.csv",
+  cov_path = "data/LEYE_95_26_covs.csv"
 ) {
   eh <- read.csv(eh_path, check.names = FALSE)
   cov <- read.csv(cov_path, check.names = FALSE)
@@ -70,7 +72,7 @@ prep_cjs_cov <- function(
   }
   ycols <- grep("^yr_", names(eh), value = TRUE)
   ymap <- setNames(ycols, vapply(ycols, yr_of, numeric(1)))
-  years <- 2010:2023
+  years <- 2010:2026
   M <- as.matrix(eh[, ymap[as.character(years)]])
   M[is.na(M)] <- 0
   storage.mode(M) <- "integer"
@@ -84,13 +86,19 @@ prep_cjs_cov <- function(
   f <- f[keep]
   cov <- cov[keep, , drop = FALSE]
 
+  # Sex==3 is the existing "Unknown" category; some newly banded individuals
+  # have no Sex recorded yet (NA) rather than being coded Unknown -- treat
+  # those the same way so sex[] is always a valid bSex_phi/index (1/2/3).
+  sex <- as.integer(cov$Sex)
+  sex[is.na(sex)] <- 3L
+
   list(
     y = M,
     f = f,
     nind = nrow(M),
     nocc = ncol(M),
     years = years,
-    sex = as.integer(cov$Sex),
+    sex = sex,
     tag = as.integer(cov$Tag_type)
   )
 }
@@ -100,8 +108,8 @@ cjs_int_start <- cjs_years[-cjs$nocc] # interval start years, length nocc-1
 nSex <- 3L
 nTag <- 3L
 
-# ---- 1c. Productivity (fecundity), 2018-2023 -------------------------------
-dp <- read.csv("AnnualSucc_ProdData_95_25.csv")
+# ---- 1c. Productivity (fecundity), 2018-2026 -------------------------------
+dp <- read.csv("data/AnnualSucc_ProdData_95_26.csv")
 names(dp) <- trimws(names(dp))
 dp <- dp[!is.na(dp$SpecChickNumber), c("Year", "SpecChickNumber")]
 prod_years <- sort(unique(dp$Year))
@@ -116,20 +124,35 @@ ipm_trans_start <- ipm_years[-T] # 2014..2024 (length T-1)
 
 # Map each CJS interval to the combined baseline-survival vector:
 # lphi_vec[1..T-1] = lphi_base (untagged/female baseline, by IPM transition),
-# lphi_vec[T]      = lphi_pre  (pooled pre-2014 baseline).
+# lphi_vec[T]      = lphi_pre  (pooled pre-2014 baseline),
+# lphi_vec[T+1]    = lphi_post (pooled baseline for CJS intervals starting
+#                     after the count series, i.e. the 2025-2026 interval --
+#                     counts haven't been updated past 2025 yet).
 overlap_start <- 2014
-cjs_is_overlap <- cjs_int_start >= overlap_start
+overlap_end <- max(ipm_trans_start) # 2024
 PHI_PRE_SLOT <- T
+PHI_POST_SLOT <- T + 1
 cjs_phi_lookup <- ifelse(
-  cjs_is_overlap,
-  match(cjs_int_start, ipm_trans_start),
-  PHI_PRE_SLOT
+  cjs_int_start < overlap_start,
+  PHI_PRE_SLOT,
+  ifelse(
+    cjs_int_start > overlap_end,
+    PHI_POST_SLOT,
+    match(cjs_int_start, ipm_trans_start)
+  )
 )
 stopifnot(length(cjs_phi_lookup) == cjs$nocc - 1)
-stopifnot(all(cjs_phi_lookup >= 1 & cjs_phi_lookup <= T))
+stopifnot(all(cjs_phi_lookup >= 1 & cjs_phi_lookup <= PHI_POST_SLOT))
 
-# Fecundity years -> IPM year index
-prod_ipm_idx <- match(prod_years, ipm_years) # 2018..2025 -> 5..12
+# Fecundity years -> IPM year index. Years beyond the count series (2026) map
+# to slot T+1, a pooled/orphan f_rate not used by the recruitment process
+# model (which only ever indexes f_rate[1..T-1]) -- mirrors phi_post above.
+F_POST_SLOT <- T + 1
+prod_ipm_idx <- ifelse(
+  prod_years <= max(ipm_years),
+  match(prod_years, ipm_years), # 2018..2025 -> 5..12
+  F_POST_SLOT # 2026 -> 13
+)
 
 # latent-alive inits for CJS
 z_init <- function(y, f) {
@@ -157,6 +180,8 @@ ipmCode <- nimbleCode({
   }
   phi_pre ~ dunif(0, 1) # pooled pre-2014 baseline survival
   lphi_pre <- logit(phi_pre)
+  phi_post ~ dunif(0, 1) # pooled baseline survival, 2025-2026 (beyond count series)
+  lphi_post <- logit(phi_post)
 
   # --- Survival covariate effects (corner constraints: F & untagged = ref) ---
   bSex_phi[1] <- 0
@@ -179,9 +204,11 @@ ipmCode <- nimbleCode({
   rho ~ dbeta(2, 2)
 
   # --- Fecundity (chicks/pair), annual, partially pooled ---
+  # f_rate[1..T] drive the recruitment process model (2c); f_rate[T+1] is the
+  # pooled 2026 rate, orphaned from the process model until counts catch up.
   mu_f ~ dnorm(0, sd = 2)
   sd_f ~ dexp(1)
-  for (t in 1:T) {
+  for (t in 1:(T + 1)) {
     log(f_rate[t]) <- mu_f + eps_f[t]
     eps_f[t] ~ dnorm(0, sd = sd_f)
   }
@@ -234,11 +261,13 @@ ipmCode <- nimbleCode({
   }
 
   ## ----- 2d. OBSERVATION MODEL 2: CJS SURVIVAL with covariates -------------
-  # combined baseline (logit): slots 1..T-1 = lphi_base, slot T = lphi_pre
+  # combined baseline (logit): slots 1..T-1 = lphi_base, slot T = lphi_pre,
+  # slot T+1 = lphi_post
   for (t in 1:(T - 1)) {
     lphi_vec[t] <- lphi_base[t]
   }
   lphi_vec[T] <- lphi_pre
+  lphi_vec[T + 1] <- lphi_post
 
   for (i in 1:nind) {
     logit(p_ind[i]) <- lp_base + bTag_p[tag[i]] # individual recapture prob
@@ -293,6 +322,7 @@ inits <- function() {
     sd_phi = 0.3,
     eps_phi = rnorm(T - 1, 0, 0.2),
     phi_pre = 0.5,
+    phi_post = 0.5,
     rho = 0.4,
     bSex_phi = c(NA, 0, 0),
     bTag_phi = c(NA, 0, 0),
@@ -300,7 +330,7 @@ inits <- function() {
     bTag_p = c(NA, 0, 0),
     mu_f = log(2),
     sd_f = 0.3,
-    eps_f = rnorm(T, 0, 0.2),
+    eps_f = rnorm(T + 1, 0, 0.2),
     omega = 0.1,
     N_ad = c(40, rep(NA, T - 1)),
     N_surv = c(NA, rep(38, T - 1)),
@@ -321,6 +351,7 @@ monitors <- c(
   "phi_ad",
   "phi_juv",
   "phi_pre",
+  "phi_post",
   "rho",
   "bSex_phi",
   "bTag_phi",
@@ -394,6 +425,7 @@ if (!SKIP_RUN) {
   keyp <- intersect(
     c(
       "phi_pre",
+      "phi_post",
       "rho",
       "mu_f",
       "omega",
@@ -421,6 +453,11 @@ if (!SKIP_RUN) {
     ),
     row.names = FALSE
   )
+  cat(sprintf(
+    "pooled pre-2014 (phi_pre): %.3f | pooled 2025->2026 (phi_post): %.3f\n",
+    mean(mat[, "phi_pre"]),
+    mean(mat[, "phi_post"])
+  ))
 
   cat("\n--- Survival covariate effects (logit scale) and odds ratios ---\n")
   eff <- rbind(
@@ -460,6 +497,10 @@ if (!SKIP_RUN) {
   cat("\n--- Fecundity f_rate (chicks/pair) by year ---\n")
   fr <- t(apply(mat[, paste0("f_rate[", 1:T, "]")], 2, q))
   print(data.frame(year = ipm_years, round(fr, 3)), row.names = FALSE)
+  cat(sprintf(
+    "pooled 2026 (beyond count series): %.3f\n",
+    mean(mat[, paste0("f_rate[", T + 1, "]")])
+  ))
 
   cat("\n--- Population growth lambda ---\n")
   lam <- t(apply(mat[, paste0("lambda[", 1:(T - 1), "]")], 2, q))

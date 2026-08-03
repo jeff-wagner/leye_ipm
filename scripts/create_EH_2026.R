@@ -55,7 +55,8 @@ eh_95_26 <- eh_95_26 |>
       Band_Number %in% flags26$`Band Number` ~ 1,
       .default = 0
     )
-  )
+  ) |>
+  arrange(Band_Number)
 
 # QC: Check consistency with 2025 EH
 mismatch_matrix <- eh_95_25 != eh_95_26[1:381, 1:33]
@@ -79,7 +80,7 @@ covs26 <- covs25 |>
     mean_tot_head = newBands25$`Total head`,
     mean_tarsus = newBands25$`Diagonal tarsus`,
     Otter_18 = 1,
-    Resight_effort = NA,
+    Resight_effort = 2,
     Sex.f = NA,
     Sex = newBands25$Sex,
     yr_banded = 2025,
@@ -95,6 +96,7 @@ covs26 <- covs25 |>
       "Oceanview" ~ "OCEAN",
       "Coastal Refuge" ~ "COASTAL"
     )
-  )
+  ) |>
+  arrange(Band_Number)
 
 write_csv(covs26, "data/LEYE_95_26_covs.csv")
