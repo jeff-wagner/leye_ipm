@@ -1,0 +1,46 @@
+# ---- MCMC output --------------------------------------------------------
+# Fitted posterior samples are large (tens of MB) and fully regenerable by
+# re-running the scripts. Keeping them out of history avoids permanent repo
+# bloat. Figures and summary tables under output/ ARE tracked, since they are
+# small and serve as a record of each fit.
+*.rds
+
+# ---- Rendered reports ---------------------------------------------------
+# The rendered HTML under reports/ IS tracked deliberately, so collaborators
+# who don't run R can open the current results straight from the repo. It is
+# self-contained (~2.4 MB) and is rewritten on every render, so each render
+# adds a full copy to history -- re-render only when the results change, not
+# as a matter of routine.
+
+# ---- R session artefacts ------------------------------------------------
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj
+.Rproj.user/
+*_cache/
+*-Ex.R
+
+# NIMBLE compiles model code to C++ in a temporary project directory
+nimble_generatedCode*/
+
+# ---- Editor / IDE (machine-specific) ------------------------------------
+.posit/
+.vscode/
+.idea/
+
+# Claude Code local settings (per-machine permissions, not shared config)
+.claude/settings.local.json
+
+# ---- OS junk ------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+._*
+
+# ---- Misc ---------------------------------------------------------------
+*.tmp
+*.bak
+*~
