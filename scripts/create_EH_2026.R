@@ -11,7 +11,8 @@ library(tidyverse)
 
 # Encounter History ------------------------------------------------------
 
-newBands25 <- read_csv("data/New Bands 2025.csv")
+newBands25 <- read_csv("data/New Bands 2025.csv") |>
+  filter(Age != "Chick")
 resight26 <- read_csv("data/Resight 2026.csv")
 eh_95_25 <- read_csv("data/LEYE_95_25_EH.csv")
 banded_18_25 <- readxl::read_excel(
@@ -27,7 +28,7 @@ eh_95_26 <- eh_95_25 |>
     Study_Region = newBands25$`Study area`,
     Year = 2025
   ) |>
-  filter(!is.na(Band_Number)) |> # remove chick that wasn't banded
+  filter_out(is.na(Band_Number)) |> # remove chick that wasn't banded
   mutate(
     yr_25 = case_when(Year == 2025 ~ 1, .default = yr_25),
     across(yr_95:yr_24, ~ if_else(Year == 2025, 0L, .x, missing = .x)),

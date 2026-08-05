@@ -23,7 +23,7 @@ library(parallel)
 #   Wrap Sections 4-5 of the IPM script in `if (!exists('SKIP_RUN'))` and set
 #   SKIP_RUN <- TRUE before sourcing, so sourcing only defines the objects.
 SKIP_RUN <- TRUE
-source("LEYE_IPM.R") # defines ipmCode, constants, data, inits, monitors
+source("scripts/LEYE_IPM.R") # defines ipmCode, constants, data, inits, monitors
 # (ipm_years, T, cjs, etc. also become available for post-processing)
 
 ## ---------------------------------------------------------------------------
@@ -165,4 +165,4 @@ cat(sprintf(
   sum(gd[, 1] > 1.05, na.rm = TRUE)
 ))
 
-saveRDS(samples, "LEYE_IPM_samples_20260529.rds") # cache to avoid refitting
+saveRDS(samples, "LEYE_IPM_samples_20260803.rds") # cache to avoid refitting
