@@ -83,6 +83,7 @@ figures.
 | `LEYE_IPM.R` | **The main model.** Data prep, NIMBLE model, fit, summaries and figures. |
 | `LEYE_IPM_run_parallel.R` | Runs the IPM with one MCMC chain per core. Sources `LEYE_IPM.R` with `SKIP_RUN <- TRUE` so only the model objects are defined. |
 | `LEYE_juv90_module.R` | Standalone module estimating **local recruitment probabilities** from 1990s chick data. Supplies the recruitment priors used by the IPM. |
+| `LEYE_tLTRE.R` | Transient LTRE. Reads a cached posterior; decomposes mean λ across pathways and Var(λ) across drivers, separating demographic stochasticity. |
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
 | `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history. **Partly simulated — see the caveat below.** |
 | `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM. |
@@ -238,19 +239,24 @@ figure.
   like "Firehouse Blue" imply chicks carried colour marks like the adults, which
   justifies this. If they were metal-band-only, their true detection was lower and `psi`
   is underestimated.
-- **The LTRE block in `LEYE_IPM.R` is disabled.** It referenced objects the script never
-  creates and would have errored under the previous model too. It also assumed age-1
-  recruitment and two fecundity classes, neither of which matches the current structure.
-  Rewriting it means deriving the transition matrix for the delayed-recruitment model.
+- **Immigration is constant by design, and this was tested.** A time-varying `omega[t]`
+  (year random effect) was fitted and rejected: `sd_omega`'s posterior barely moved off
+  its prior, annual rates spanned only 1.27×, and in the tLTRE the driver-explained share
+  of Var(λ) rose 20.9% → 28.2% while the demographic term fell by the same amount — the
+  year effect was absorbing Poisson noise, not detecting signal. It also shifted `omega`
+  down and `pi_rec` up without evidence, since the two enter λ additively. The cause is
+  arithmetic: ~3 immigrants a year, ~10 usable growth increments. See the comment block
+  at the `omega` prior in `LEYE_IPM.R`. Resolving this needs data separating immigrants
+  from local recruits, not a richer model.
 - **Study-period chick resightings are not used.** Only six unflagged birds were resighted
   across 2018–2026, and detection for unflagged birds is not identifiable from a single
   recapture. Including them would mostly launder a prior assumption into the results.
 - **Counts end at 2025** while survival and productivity run to 2026.
-- **The parallel wrapper's cached samples are a plain list, not an `mcmc.list`.** The
-  `lapply()` that zeroes out NAs strips the class, so `as.matrix()` on the reloaded
-  object silently returns a 3 × 1 matrix instead of the full draws — it does not error.
-  Rewrap on load (`coda::as.mcmc.list(readRDS(...))`), or fix it at the source by
-  wrapping the `lapply()` result in `as.mcmc.list()` before saving.
+- **Older cached samples may be a plain list, not an `mcmc.list`.** The parallel
+  wrapper's `lapply()` used to strip the class, so `as.matrix()` on a reloaded cache
+  silently returned a 3 × 1 matrix instead of the full draws — without erroring. Fixed at
+  the source, and the report and tLTRE both re-wrap defensively, but any cache saved
+  before that fix needs `coda::as.mcmc.list()` on load.
 
 ---
 
