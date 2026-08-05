@@ -241,6 +241,32 @@ ipmCode <- nimbleCode({
   }
 
   # --- Immigration ---
+  # Constant per-capita immigration rate. This is a TESTED assumption, not a
+  # default -- do not "improve" it with a year random effect without reading
+  # the following.
+  #
+  # A time-varying version was fitted (2026-08-05):
+  #   log(omega[t]) = mu_omega + z_omega[t] * sd_omega,  sd_omega ~ dexp(2)
+  # It converged cleanly (Rhat <= 1.012) and was uninformative:
+  #
+  #   * sd_omega posterior ~= its prior. P(sd_omega > 0.25) was 0.607 under the
+  #     prior and 0.572 after fitting; prior mean 0.500 -> posterior 0.429.
+  #   * Annual rates came out flat: 0.069-0.088, a 1.27x range, with every
+  #     interval spanning ~0.004-0.35.
+  #   * In the tLTRE the driver-explained share of Var(lambda) rose 20.9% ->
+  #     28.2% while the demographic + cross terms fell by the same 7.3 points.
+  #     The year effect was absorbing Poisson noise and re-presenting it as
+  #     environmental variation, not detecting signal.
+  #   * It also shifted the level without evidence: omega fell and pi_rec rose
+  #     to compensate, because the two enter lambda additively and the counts
+  #     cannot separate them.
+  #
+  # The cause is arithmetic, not fixable by reparameterisation: ~3 immigrants
+  # arrive per year, so a rate estimated from one year of data carries a 95%
+  # interval spanning roughly a 14-fold range, and the count series supplies
+  # only ~10 usable growth increments in total. Resolving annual immigration
+  # needs data that separates immigrants from local recruits -- chick-origin
+  # returns versus newly captured unbanded adults -- not a richer model.
   omega ~ dexp(1)
 
   ## ----- 2b. PROCESS MODEL (breeding population, delayed recruitment) ------
