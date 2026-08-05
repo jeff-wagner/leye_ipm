@@ -84,6 +84,34 @@ stopifnot(n_draws > 100) # guard against the silent-truncation failure above
 PRIOR_PI <- c(a = 2.268, b = 13.610)
 PRIOR_KAPPA <- c(a = 6.054, b = 6.309)
 
+# omega is a scalar in some fits and a year-indexed vector in others. Resolve
+# once here so the rest of the report does not care which it is.
+omega_tv <- any(grepl("^omega\\[", colnames(mat)))
+omega_draws <- if (omega_tv) mat[, "omega_bar"] else mat[, "omega"]
+
+# tLTRE. Computed here from the SAME posterior loaded above rather than read
+# from LEYE_tLTRE_results.rds, so the decomposition cannot silently belong to a
+# different fit than the numbers everywhere else in this report. Sourcing with
+# SKIP_TLTRE_RUN loads the functions without running the script's own report.
+SKIP_TLTRE_RUN <- TRUE
+source("scripts/LEYE_tLTRE.R")
+tl <- tltre_series(mat, T)
+tltre_check(tl) # stops the render if the exact identity ever breaks
+tl_level <- tltre_level(tl)
+tl_var <- tltre_variance(tl)
+
+driver_labs <- c(
+  phi = "Adult survival (φ)",
+  omega = "Immigration (ω)",
+  f_t = "Productivity, year t",
+  f_lag = "Productivity, year t−1",
+  rho = "Population structure (ρ)",
+  psi1 = "Recruitment at age 1 (ψ1)",
+  psi2 = "Recruitment at age 2 (ψ2)"
+)
+# NB: plain "ψ1" not "ψ₁" -- the Unicode subscript has no glyph in the default
+# plotting font and renders as a tofu box on the axis.
+
 q <- function(x) {
   c(
     mean = mean(x),
@@ -219,7 +247,7 @@ htmltools::HTML(paste0(
     COL_REC
   ),
   card(
-    sprintf("%.3f", mean(mat[, "omega"])), "Immigration rate (ω)",
+    sprintf("%.3f", mean(omega_draws)), "Immigration rate (ω)",
     sprintf("%.0f%% of annual gains", 100 * (1 - mean(share))),
     COL_IMM
   ),
@@ -508,6 +536,135 @@ ggplot(fr, aes(year, med)) +
   theme(legend.position = "top")
 ```
 
+# What drives population change
+
+A transient LTRE (tLTRE), following Koons et al. (2016, 2017). Two questions that
+sound similar and have different answers:
+
+- **Level** — what *sustains* the population? Mean λ splits across survival,
+  recruitment and immigration.
+- **Variance** — what *drives year-to-year variation* in λ?
+
+Everything below is computed per posterior draw, so each contribution carries a
+credible interval rather than being a point estimate at posterior means.
+
+## What sustains the population
+
+```{r}
+#| label: fig-tltre-level
+#| fig-cap: "Additive contributions to mean λ. Bars are 95% credible intervals; percentages are each pathway's share of λ."
+#| fig-height: 2.9
+
+lev <- as.data.frame(tl_level)
+lev$pathway <- factor(rownames(tl_level), levels = rev(rownames(tl_level)))
+lam_mean <- attr(tl_level, "lambda")[["mean"]]
+
+ggplot(lev, aes(contribution, pathway)) +
+  geom_linerange(aes(xmin = lwr, xmax = upr), colour = COL_AD, linewidth = .7) +
+  geom_point(colour = COL_AD, size = 2.6) +
+  # label at the interval's right edge, not the point, or it lands on the bar
+  geom_text(aes(x = upr, label = sprintf("%.1f%%", pct_of_lambda)),
+    hjust = -0.25, size = 3.1, colour = "grey35"
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(.05, .18))) +
+  labs(
+    title = "Contributions to mean λ",
+    subtitle = sprintf("Percentages are share of λ = %.3f", lam_mean),
+    x = "Contribution to λ", y = NULL
+  ) +
+  theme_leye()
+```
+
+Survival is the dominant pathway. Recruitment and immigration contribute
+comparable, smaller amounts — but see the caveat on separating them below.
+
+## What drives year-to-year variation
+
+::: {.callout-important appearance="simple"}
+**Most variation in λ is demographic stochasticity, not environmental variation
+in vital rates.** With roughly 25 birds, Poisson noise in who happens to survive,
+recruit or arrive is a first-order term. A conventional LTRE reports only the
+driver contributions and would present a fraction of the variance as though it
+were the whole story.
+:::
+
+```{r}
+#| label: tbl-tltre-partition
+#| echo: false
+
+pp <- as.data.frame(tl_var$partition_pct)
+pp$Component <- c(
+  "Driver-explained", "Demographic stochasticity", "Cross term"
+)
+pp[c("Component", "mean", "lwr", "upr")] |>
+  setNames(c("Component", "Share of Var(λ) %", "Lower", "Upper")) |>
+  tbl(
+    "Partition of Var(λ)",
+    "The three sum to 100%. Individual shares can exceed it because the cross term is negative.",
+    dec = 1
+  ) |>
+  cols_align("left", columns = Component)
+```
+
+The cross term is non-zero because population structure (`ρ`) depends on realized
+abundance and so carries the same Poisson noise — the smooth and stochastic parts
+of λ are not independent.
+
+```{r}
+#| label: fig-tltre-drivers
+#| fig-cap: "tLTRE contributions to the driver-explained portion of Var(λ). Bars are 95% credible intervals. Parameters with no year index contribute exactly zero by construction."
+#| fig-height: 3.4
+
+ct <- as.data.frame(tl_var$contributions)
+ct$driver <- rownames(tl_var$contributions)
+ct$label <- driver_labs[ct$driver]
+ct$structural_zero <- ct$mean == 0 & ct$lwr == 0 & ct$upr == 0
+ct$label <- factor(ct$label, levels = rev(ct$label))
+
+ggplot(ct, aes(mean, label)) +
+  geom_vline(xintercept = 0, colour = "grey70") +
+  geom_linerange(aes(xmin = lwr, xmax = upr, colour = structural_zero), linewidth = .7) +
+  geom_point(aes(colour = structural_zero), size = 2.6) +
+  scale_colour_manual(
+    values = c(`FALSE` = COL_AD, `TRUE` = "grey65"), guide = "none"
+  ) +
+  # phi's upper bound sits past the default break, so widen or it gets clipped
+  scale_x_continuous(expand = expansion(mult = c(.04, .08))) +
+  labs(
+    title = "Contributions to driver-explained variance",
+    subtitle = sprintf(
+      "Drivers explain %.0f%% of Var(λ); the rest is demographic noise",
+      tl_var$partition_pct["driver_explained", "mean"]
+    ),
+    x = "Contribution to Var(λ)", y = NULL
+  ) +
+  theme_leye() +
+  theme(panel.grid.major.x = element_line(colour = "grey93"))
+```
+
+```{r}
+#| label: tltre-zeros
+#| echo: false
+#| results: asis
+
+zeros <- rownames(tl_var$contributions)[
+  tl_var$contributions[, "mean"] == 0 & tl_var$contributions[, "upr"] == 0
+]
+if (length(zeros)) {
+  cat(
+    "::: {.callout-note appearance='simple'}\n",
+    "**", paste(driver_labs[zeros], collapse = ", "), "** contribute exactly ",
+    "zero — they are single parameters with no year index, so they cannot vary ",
+    "between years *by construction, not by evidence*. A time-varying ",
+    "immigration rate was fitted and rejected: it absorbed Poisson noise rather ",
+    "than detecting signal (see the README). Separating recruitment from ",
+    "immigration needs data that distinguishes chick-origin returns from newly ",
+    "arrived unbanded adults.\n:::\n",
+    sep = ""
+  )
+}
+```
+
 # Convergence
 
 ```{r}
@@ -516,7 +673,8 @@ ggplot(fr, aes(year, med)) +
 
 keyp <- intersect(
   c(
-    "pi_rec", "kappa", "psi1", "psi2", "omega", "phi_pre", "phi_post",
+    "pi_rec", "kappa", "psi1", "psi2", "omega", "omega_bar", "sd_omega",
+    "phi_pre", "phi_post",
     "mu_f", "lp_base", "logB0",
     "bSex_phi[2]", "bSex_phi[3]", "bTag_phi[2]", "bTag_phi[3]",
     "bTag_p[2]", "bTag_p[3]"
