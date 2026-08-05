@@ -1,0 +1,617 @@
+---
+title: "Lesser Yellowlegs Integrated Population Model"
+subtitle: "Anchorage breeding population — results summary"
+date: today
+date-format: "D MMMM YYYY"
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    code-tools: true
+    embed-resources: true
+    fig-width: 8
+    fig-height: 4.8
+    fig-align: center
+    tbl-cap-location: top
+    css: report.css
+execute:
+  warning: false
+  message: false
+  echo: true
+params:
+  samples_path: null
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(coda)
+library(gt)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r}
+#| label: load
+#| include: false
+
+# Run from the project root regardless of where the .qmd lives.
+proj <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+setwd(proj)
+
+# Rebuild the data context (ipm_years, T, cjs_int_start, cjs, dp ...) exactly as
+# the model saw it. SKIP_RUN keeps this to object definitions -- no refitting.
+SKIP_RUN <- TRUE
+source("scripts/LEYE_IPM.R")
+
+# Locate the cached posterior. Default: most recent LEYE_IPM_samples*.rds.
+samples_path <- params$samples_path
+if (is.null(samples_path)) {
+  cand <- list.files(".", "^LEYE_IPM_samples.*\\.rds$", full.names = TRUE)
+  if (!length(cand)) {
+    stop(
+      "No cached posterior found. Fit the model first (scripts/LEYE_IPM.R or ",
+      "scripts/LEYE_IPM_run_parallel.R), or pass -P samples_path:<file>."
+    )
+  }
+  samples_path <- cand[which.max(file.mtime(cand))]
+}
+
+# The parallel wrapper's lapply() strips the mcmc.list class, and as.matrix()
+# on the resulting plain list silently returns a 3x1 matrix instead of erroring.
+# Re-wrap defensively so the report cannot be built on garbage.
+samples <- readRDS(samples_path)
+if (!inherits(samples, "mcmc.list")) samples <- coda::as.mcmc.list(samples)
+mat <- as.matrix(samples)
+
+n_chains <- coda::nchain(samples)
+n_draws <- nrow(mat)
+stopifnot(n_draws > 100) # guard against the silent-truncation failure above
+
+# Priors on recruitment, as declared in scripts/LEYE_IPM.R. Kept here so the
+# prior-vs-posterior comparison below cannot drift from the fitted model.
+PRIOR_PI <- c(a = 2.268, b = 13.610)
+PRIOR_KAPPA <- c(a = 6.054, b = 6.309)
+
+q <- function(x) {
+  c(
+    mean = mean(x),
+    med = median(x),
+    lwr = quantile(x, .025, names = FALSE),
+    upr = quantile(x, .975, names = FALSE)
+  )
+}
+qq <- function(stem, idx) {
+  t(vapply(paste0(stem, "[", idx, "]"), function(cn) q(mat[, cn]), numeric(4)))
+}
+
+# House table style: one call so every table in the report matches.
+tbl <- function(x, title = NULL, subtitle = NULL, dec = 3) {
+  g <- gt(x)
+  if (!is.null(title)) g <- tab_header(g, title = title, subtitle = subtitle)
+  g |>
+    fmt_number(columns = where(is.numeric), decimals = dec) |>
+    opt_row_striping() |>
+    tab_options(
+      table.font.size = px(13),
+      heading.title.font.size = px(15),
+      heading.subtitle.font.size = px(12),
+      column_labels.font.weight = "600",
+      data_row.padding = px(4),
+      table.border.top.style = "none"
+    )
+}
+
+# Shared plot look.
+theme_leye <- function() {
+  theme_minimal(base_size = 12) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      plot.title = element_text(face = "bold", size = 13),
+      plot.subtitle = element_text(colour = "grey35", size = 11),
+      plot.caption = element_text(colour = "grey45", hjust = 0, size = 9),
+      axis.title = element_text(colour = "grey25")
+    )
+}
+COL_AD <- "#1f4e79"
+COL_REC <- "#2e8b57"
+COL_IMM <- "#c0504d"
+
+trans_yr <- ipm_years[-T]
+trans_lab <- paste0(trans_yr, "–", trans_yr + 1)
+```
+
+::: {.callout-note appearance="simple"}
+## How to read this report
+
+Abundance is estimated on a **relative** scale — the counts are a volunteer index,
+not a census. Read the *shape* of the trajectory and the growth rate $\lambda$;
+the absolute number of birds is not identified and is not reported here.
+
+Recruitment (`psi1`, `psi2`) is a **composite** probability: survive **and**
+return to breed locally. It is not juvenile survival, and should not be compared
+against published juvenile survival estimates.
+:::
+
+# Overview
+
+This integrated population model combines three data sources into one likelihood
+so that each informs a shared set of demographic rates.
+
+```{r}
+#| label: tbl-sources
+#| echo: false
+
+data.frame(
+  Source = c("Abundance", "Survival", "Productivity"),
+  Data = c(
+    "Volunteer wetland counts",
+    "Adult mark–resight (CJS)",
+    "Nest productivity"
+  ),
+  Years = c("2014–2025", "2010–2026", "2018–2026"),
+  Detail = c(
+    sprintf("%d records, %d wetlands, 3 weekly visits", nCount, nWet),
+    sprintf("%d individuals, sex + tag-type covariates", cjs$nind),
+    sprintf("%d nests, chicks per nest", nProd)
+  )
+) |>
+  tbl("Data sources") |>
+  cols_align("left")
+```
+
+Recruitment carries a **two-year lag**: chicks are absent from the breeding site
+until they recruit, and the 1990s chick data show recruitment split roughly evenly
+between ages 1 and 2. Recruits enter the breeding class directly, so there is no
+separate juvenile stage — volunteer counts cannot distinguish non-breeding age-1
+birds from breeding adults.
+
+$$
+R_t = N_{t-1}\,\frac{f_{t-1}}{2}\,\psi_1 \;+\; N_{t-2}\,\frac{f_{t-2}}{2}\,\psi_2
+$$
+
+# Headline results
+
+```{r}
+#| label: headline
+#| echo: false
+
+lam <- rowMeans(mat[, paste0("lambda[", 1:(T - 1), "]")])
+geolam <- exp(mean(log(lam)))
+geolam_ci <- exp(quantile(log(lam), c(.025, .975)))
+Rm <- rowSums(mat[, paste0("N_rec[", 3:T, "]")])
+Im <- rowSums(mat[, paste0("Imm[", 3:T, "]")])
+share <- Rm / (Rm + Im)
+
+card <- function(value, label, sub, colour) {
+  sprintf(
+    '<div class="kpi" style="border-top-color:%s"><div class="kpi-v">%s</div>
+     <div class="kpi-l">%s</div><div class="kpi-s">%s</div></div>',
+    colour, value, label, sub
+  )
+}
+htmltools::HTML(paste0(
+  '<div class="kpi-row">',
+  card(
+    sprintf("%.3f", geolam), "Population growth (λ)",
+    sprintf("%.3f – %.3f &nbsp;|&nbsp; %.1f%%/yr", geolam_ci[1], geolam_ci[2], 100 * (geolam - 1)),
+    "#c0504d"
+  ),
+  card(
+    sprintf("%.2f", mean(mat[, "phi_ad[1]"])), "Adult survival",
+    "annual, untagged female baseline", COL_AD
+  ),
+  card(
+    sprintf("%.3f", mean(mat[, "pi_rec"])), "Local recruitment",
+    sprintf("ψ₁ %.3f &nbsp; ψ₂ %.3f", mean(mat[, "psi1"]), mean(mat[, "psi2"])),
+    COL_REC
+  ),
+  card(
+    sprintf("%.3f", mean(mat[, "omega"])), "Immigration rate (ω)",
+    sprintf("%.0f%% of annual gains", 100 * (1 - mean(share))),
+    COL_IMM
+  ),
+  "</div>"
+))
+```
+
+The population is declining at roughly
+`r sprintf("%.1f%%", abs(100 * (geolam - 1)))` per year. Adult survival is the
+best-determined rate in the model. Local recruitment is low, and a substantial
+share of annual gains is attributable to immigration — but see
+[Recruitment versus immigration] for why that split remains uncertain.
+
+# Population trajectory
+
+```{r}
+#| label: fig-trajectory
+#| fig-cap: "Estimated breeding population on a relative scale. Ribbon is the 95% credible interval. The absolute level is not identified — read the shape, not the height."
+
+Nt <- as.data.frame(qq("N_tot", 1:T))
+Nt$year <- ipm_years
+
+ggplot(Nt, aes(year, med)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), fill = COL_AD, alpha = .15) +
+  geom_line(colour = COL_AD, linewidth = .9) +
+  geom_point(colour = COL_AD, size = 2.2) +
+  scale_x_continuous(breaks = ipm_years) +
+  labs(
+    title = "Estimated population trajectory",
+    subtitle = "Relative scale — interpret shape and growth rate, not absolute abundance",
+    x = NULL, y = "Latent abundance (relative)"
+  ) +
+  theme_leye()
+```
+
+```{r}
+#| label: fig-lambda
+#| fig-cap: "Annual population growth rate. Values below 1 indicate decline. The dashed line marks a stable population."
+
+lamd <- as.data.frame(qq("lambda", 1:(T - 1)))
+lamd$transition <- factor(trans_lab, levels = trans_lab)
+
+ggplot(lamd, aes(transition, med)) +
+  geom_hline(yintercept = 1, linetype = 2, colour = "grey45") +
+  geom_linerange(aes(ymin = lwr, ymax = upr), colour = COL_AD, linewidth = .7) +
+  geom_point(colour = COL_AD, size = 2.2) +
+  labs(
+    title = "Population growth rate by transition",
+    subtitle = sprintf("Geometric mean λ = %.3f (%.3f–%.3f)", geolam, geolam_ci[1], geolam_ci[2]),
+    x = NULL, y = expression(lambda)
+  ) +
+  theme_leye() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Adult survival
+
+`phi_ad` is the baseline rate for **untagged females** — the reference level, and
+the rate that drives the population process model, since the population is
+overwhelmingly untagged.
+
+```{r}
+#| label: fig-survival
+#| fig-cap: "Baseline annual adult survival (untagged female). Open points mark transitions with no direct mark–resight data, informed only through the process model."
+
+ad <- as.data.frame(qq("phi_ad", 1:(T - 1)))
+ad$transition <- factor(trans_lab, levels = trans_lab)
+ad$has_cjs <- trans_yr %in% cjs_int_start
+
+ggplot(ad, aes(transition, med)) +
+  geom_linerange(aes(ymin = lwr, ymax = upr), colour = COL_AD, linewidth = .7) +
+  geom_point(aes(shape = has_cjs), colour = COL_AD, fill = "white", size = 2.4) +
+  scale_shape_manual(values = c(`TRUE` = 21, `FALSE` = 1), guide = "none") +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(
+    title = "Baseline adult survival",
+    subtitle = "Untagged, female reference level",
+    x = NULL, y = "Annual apparent survival"
+  ) +
+  theme_leye() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Covariate effects
+
+Effects are shown as odds ratios against the reference levels (female, untagged).
+An odds ratio below 1 means lower survival — or lower resighting probability —
+than the reference.
+
+```{r}
+#| label: fig-forest
+#| fig-cap: "Sex and tag-type effects on survival and resighting. Bars are 95% credible intervals; the dashed line at 1 is no effect."
+#| fig-height: 5.2
+
+orq <- function(col, label, panel) {
+  x <- exp(mat[, col])
+  data.frame(
+    term = label, panel = panel,
+    med = median(x),
+    lwr = quantile(x, .025, names = FALSE),
+    upr = quantile(x, .975, names = FALSE),
+    pneg = mean(mat[, col] < 0)
+  )
+}
+fo <- rbind(
+  orq("bSex_phi[2]", "Male (vs female)", "Adult survival"),
+  orq("bSex_phi[3]", "Unknown sex (vs female)", "Adult survival"),
+  orq("bTag_phi[2]", "Geolocator (vs untagged)", "Adult survival"),
+  orq("bTag_phi[3]", "GPS (vs untagged)", "Adult survival"),
+  orq("bTag_p[2]", "Geolocator (vs untagged)", "Resighting"),
+  orq("bTag_p[3]", "GPS (vs untagged)", "Resighting")
+)
+fo$term <- factor(fo$term, levels = rev(unique(fo$term)))
+
+ggplot(fo, aes(med, term)) +
+  geom_vline(xintercept = 1, linetype = 2, colour = "grey45") +
+  geom_linerange(aes(xmin = lwr, xmax = upr), colour = COL_AD, linewidth = .7) +
+  geom_point(colour = COL_AD, size = 2.4) +
+  geom_text(aes(x = upr, label = sprintf("P(<1)=%.2f", pneg)),
+    hjust = -0.15, size = 2.9, colour = "grey40"
+  ) +
+  scale_x_log10(expand = expansion(mult = c(.05, .28))) +
+  facet_wrap(~panel, ncol = 1, scales = "free_y") +
+  labs(
+    title = "Covariate effects (odds-ratio scale)",
+    subtitle = "Reference levels: female, untagged",
+    x = "Odds ratio (log scale)", y = NULL
+  ) +
+  theme_leye() +
+  theme(panel.grid.major.x = element_line(colour = "grey92"))
+```
+
+```{r}
+#| label: tbl-groups
+#| echo: false
+
+base <- qlogis(mat[, "phi_ad[1]"])
+bS <- cbind(0, mat[, "bSex_phi[2]"], mat[, "bSex_phi[3]"])
+bT <- cbind(0, mat[, "bTag_phi[2]"], mat[, "bTag_phi[3]"])
+grid <- expand.grid(tag = c("None", "Geolocator", "GPS"), sex = c("Female", "Male", "Unknown"))
+grid$estimate <- NA_real_
+grid$lwr <- NA_real_
+grid$upr <- NA_real_
+for (i in seq_len(nrow(grid))) {
+  v <- plogis(base + bS[, match(grid$sex[i], c("Female", "Male", "Unknown"))] +
+    bT[, match(grid$tag[i], c("None", "Geolocator", "GPS"))])
+  grid[i, c("estimate", "lwr", "upr")] <- c(mean(v), quantile(v, c(.025, .975)))
+}
+grid |>
+  select(Sex = sex, Tag = tag, Estimate = estimate, Lower = lwr, Upper = upr) |>
+  arrange(Sex, Tag) |>
+  tbl(
+    "Adult survival by sex and tag type",
+    "First transition. GPS × unknown-sex has no supporting data."
+  ) |>
+  cols_align("left", columns = c(Sex, Tag))
+```
+
+# Recruitment and immigration
+
+## Local recruitment
+
+`psi1` and `psi2` are the probabilities that a fledged chick survives **and**
+returns to breed locally, at age 1 and age 2 respectively. Their priors come from
+a separate analysis of 1990s chick cohorts
+(`scripts/LEYE_juv90_module.R`) and are informative but free to update.
+
+```{r}
+#| label: tbl-recruit
+#| echo: false
+
+data.frame(
+  Parameter = c("pi_rec (total)", "kappa (fraction at age 1)", "psi1 (age 1)", "psi2 (age 2)"),
+  Mean = c(mean(mat[, "pi_rec"]), mean(mat[, "kappa"]), mean(mat[, "psi1"]), mean(mat[, "psi2"])),
+  Lower = c(
+    quantile(mat[, "pi_rec"], .025), quantile(mat[, "kappa"], .025),
+    quantile(mat[, "psi1"], .025), quantile(mat[, "psi2"], .025)
+  ),
+  Upper = c(
+    quantile(mat[, "pi_rec"], .975), quantile(mat[, "kappa"], .975),
+    quantile(mat[, "psi1"], .975), quantile(mat[, "psi2"], .975)
+  )
+) |>
+  tbl("Local recruitment", "Composite survival × philopatry — not annual survival") |>
+  cols_align("left", columns = Parameter)
+```
+
+```{r}
+#| label: fig-prior-post
+#| fig-cap: "Prior versus posterior for the two recruitment parameters. Movement away from the prior shows the count data carrying information; overlap shows the estimate resting on the 1990s analysis."
+#| fig-height: 3.6
+
+grid_x <- seq(0, 1, length.out = 512)
+dens <- function(nm, a, b, lab) {
+  po <- density(mat[, nm], from = 0, to = 1)
+  rbind(
+    data.frame(x = grid_x, y = dbeta(grid_x, a, b), which = "Prior", par = lab),
+    data.frame(x = po$x, y = po$y, which = "Posterior", par = lab)
+  )
+}
+dd <- rbind(
+  dens("pi_rec", PRIOR_PI["a"], PRIOR_PI["b"], "pi_rec (total recruitment)"),
+  dens("kappa", PRIOR_KAPPA["a"], PRIOR_KAPPA["b"], "kappa (fraction at age 1)")
+)
+
+ggplot(dd, aes(x, y, colour = which, fill = which)) +
+  geom_area(position = "identity", alpha = .18, colour = NA) +
+  geom_line(linewidth = .8) +
+  facet_wrap(~par, scales = "free") +
+  scale_colour_manual(values = c(Prior = "grey55", Posterior = COL_REC), name = NULL) +
+  scale_fill_manual(values = c(Prior = "grey55", Posterior = COL_REC), name = NULL) +
+  labs(title = "Prior versus posterior", x = NULL, y = "Density") +
+  theme_leye() +
+  theme(legend.position = "top", axis.text.y = element_blank())
+```
+
+::: {.callout-important appearance="simple"}
+The counts inform the **level** of recruitment but not its **timing**. `pi_rec`
+moves appreciably from its prior; `kappa` barely moves. The age-1 versus age-2
+split therefore rests entirely on the 1990s chick histories, not on the count
+data — and those cohorts are partly simulated (see [Caveats]).
+:::
+
+## Recruitment versus immigration {#recruitment-versus-immigration}
+
+```{r}
+#| label: fig-gains
+#| fig-cap: "Annual gains to the breeding population, split into locally recruited birds and immigrants. Bar heights are posterior means."
+
+gains <- rbind(
+  data.frame(
+    year = ipm_years[3:T], source = "Local recruits",
+    value = colMeans(mat[, paste0("N_rec[", 3:T, "]")])
+  ),
+  data.frame(
+    year = ipm_years[3:T], source = "Immigrants",
+    value = colMeans(mat[, paste0("Imm[", 3:T, "]")])
+  )
+)
+
+ggplot(gains, aes(year, value, fill = source)) +
+  geom_col(position = "stack", width = .7) +
+  scale_fill_manual(values = c("Local recruits" = COL_REC, "Immigrants" = COL_IMM), name = NULL) +
+  scale_x_continuous(breaks = ipm_years[3:T]) +
+  labs(
+    title = "Sources of annual gains",
+    subtitle = sprintf(
+      "Local recruitment accounts for %.0f%% of gains (95%% CrI %.0f–%.0f%%)",
+      100 * mean(share), 100 * quantile(share, .025), 100 * quantile(share, .975)
+    ),
+    x = NULL, y = "Birds added"
+  ) +
+  theme_leye()
+```
+
+::: {.callout-warning appearance="simple"}
+**This split is genuinely uncertain.** Recruitment and immigration both add birds,
+and a relative-scale count index cannot fully separate them. The credible interval
+on the recruitment share spans
+`r sprintf("%.0f%%", 100 * quantile(share, .025))` to
+`r sprintf("%.0f%%", 100 * quantile(share, .975))`. Informative priors on
+recruitment narrow this but do not resolve it. Treat the point estimate as
+indicative, not as a finding.
+:::
+
+# Productivity
+
+```{r}
+#| label: fig-fec
+#| fig-cap: "Estimated chicks per pair. The final year is estimated from productivity data that has no matching count year and does not feed the population process."
+
+fr <- as.data.frame(qq("f_rate", 1:(T + 1)))
+fr$year <- c(ipm_years, max(ipm_years) + 1)
+fr$in_model <- c(rep(TRUE, T), FALSE)
+
+ggplot(fr, aes(year, med)) +
+  geom_linerange(aes(ymin = lwr, ymax = upr), colour = "grey55", linewidth = .7) +
+  geom_point(aes(colour = in_model), size = 2.2) +
+  scale_colour_manual(
+    values = c(`TRUE` = COL_AD, `FALSE` = "grey60"),
+    labels = c(`TRUE` = "In process model", `FALSE` = "Beyond count series"), name = NULL
+  ) +
+  scale_x_continuous(breaks = fr$year) +
+  labs(title = "Productivity", x = NULL, y = "Chicks per pair") +
+  theme_leye() +
+  theme(legend.position = "top")
+```
+
+# Convergence
+
+```{r}
+#| label: tbl-rhat
+#| echo: false
+
+keyp <- intersect(
+  c(
+    "pi_rec", "kappa", "psi1", "psi2", "omega", "phi_pre", "phi_post",
+    "mu_f", "lp_base", "logB0",
+    "bSex_phi[2]", "bSex_phi[3]", "bTag_phi[2]", "bTag_phi[3]",
+    "bTag_p[2]", "bTag_p[3]"
+  ),
+  colnames(mat)
+)
+gd <- gelman.diag(samples[, keyp], multivariate = FALSE)$psrf
+rh <- data.frame(Parameter = rownames(gd), Rhat = gd[, 1], Upper = gd[, 2])
+
+tbl(rh, "Convergence diagnostics", sprintf("%d chains, %s pooled draws", n_chains, format(n_draws, big.mark = ","))) |>
+  cols_align("left", columns = Parameter) |>
+  data_color(
+    columns = Rhat,
+    fn = function(x) ifelse(x > 1.05, "#f8d7da", "#d4edda")
+  ) |>
+  tab_source_note("Values below 1.05 indicate adequate mixing.")
+```
+
+```{r}
+#| label: logb0-note
+#| echo: false
+#| results: asis
+
+if (any(gd[rownames(gd) == "logB0", 1] > 1.05)) {
+  cat(
+    "::: {.callout-note appearance='simple'}\n",
+    "`logB0` is expected to converge poorly. It is the count-model intercept, ",
+    "which is non-identifiable against the absolute level of the population — ",
+    "only their sum enters the linear predictor. This is structural and does ",
+    "not affect $\\lambda$ or any rate reported above.\n:::\n",
+    sep = ""
+  )
+}
+```
+
+# Caveats {#caveats}
+
+::: {.callout-important}
+## Read before citing any number above
+
+**The 1990s chick cohorts are partly simulated.** Recruitment priors derive from
+`scripts/LEYE_juv90_module.R`, whose cohort denominators are real for 1996 only.
+For 1995, 1997 and 1998 the number of broods is a random draw with an explicitly
+arbitrary mean. Recruitment probability scales inversely with those denominators.
+The committed encounter history predates the addition of a random seed and is not
+reproducible from the script — treat it as the data of record and regenerate only
+deliberately.
+
+**Recruitment and immigration are confounded**, as described above.
+
+**Abundance is relative.** Do not report absolute population size.
+
+**`psi` is not survival.** It is survival combined with returning to breed
+locally. Birds that survive but settle elsewhere are excluded; immigration is
+modelled separately through `omega`.
+
+**Counts end in 2025** while survival and productivity run to 2026. The extra
+survival interval and productivity year are estimated in dedicated pooled
+parameters rather than being discarded, and do not drive the trajectory.
+:::
+
+# Reproducibility
+
+```{r}
+#| label: repro
+#| echo: false
+
+data.frame(
+  Item = c("Posterior file", "Chains", "Pooled draws", "Model script", "Report rendered"),
+  Value = c(
+    basename(samples_path),
+    as.character(n_chains),
+    format(n_draws, big.mark = ","),
+    "scripts/LEYE_IPM.R",
+    format(Sys.time(), "%Y-%m-%d %H:%M")
+  )
+) |>
+  tbl("Run details") |>
+  cols_align("left")
+```
+
+To reproduce: fit the model with `scripts/LEYE_IPM_run_parallel.R` (or
+`scripts/LEYE_IPM.R` for a serial run), then render this report with
+
+```bash
+quarto render reports/leye_ipm_report.qmd
+```
+
+<details>
+<summary>Session information</summary>
+
+```{r}
+#| label: sessioninfo
+#| echo: false
+sessionInfo()
+```
+
+</details>

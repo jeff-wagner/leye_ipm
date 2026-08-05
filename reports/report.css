@@ -1,0 +1,66 @@
+/* KPI cards for the headline results block */
+.kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin: 1.4rem 0 1.8rem;
+}
+
+.kpi {
+  flex: 1 1 170px;
+  min-width: 160px;
+  padding: 0.9rem 1rem 0.85rem;
+  background: #fbfbfc;
+  border: 1px solid #e6e8eb;
+  border-top: 3px solid #999;
+  border-radius: 5px;
+}
+
+.kpi-v {
+  font-size: 1.7rem;
+  font-weight: 650;
+  line-height: 1.1;
+  color: #21252b;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-l {
+  margin-top: 0.25rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #3d4450;
+}
+
+.kpi-s {
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keep wide gt tables from forcing horizontal page scroll */
+.cell-output-display > div {
+  overflow-x: auto;
+}
+
+/* Slightly roomier body text for long-form reading */
+body {
+  line-height: 1.6;
+}
+
+/* Dark mode: the bootstrap theme flips, so the cards need to follow */
+@media (prefers-color-scheme: dark) {
+  .kpi {
+    background: #22262c;
+    border-color: #343a42;
+  }
+  .kpi-v {
+    color: #e8eaed;
+  }
+  .kpi-l {
+    color: #c2c7d0;
+  }
+  .kpi-s {
+    color: #939aa5;
+  }
+}

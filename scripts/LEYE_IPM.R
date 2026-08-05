@@ -424,49 +424,46 @@ monitors <- c(
 if (!exists("SKIP_RUN")) {
   SKIP_RUN <- FALSE
 }
-if (!SKIP_RUN) {
-  Rmodel <- nimbleModel(
-    ipmCode,
-    constants = constants,
-    data = data,
-    inits = inits(),
-    calculate = FALSE
-  )
-  conf <- configureMCMC(Rmodel, monitors = monitors)
-  Rmcmc <- buildMCMC(conf)
-  Cmodel <- compileNimble(Rmodel)
-  Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 
-  # Was niter = nburnin = 10, which returns ZERO posterior draws and makes
-  # every summary below fail. Use the parallel wrapper for production runs;
-  # these settings make the serial path self-contained and actually runnable.
-  samples <- runMCMC(
-    Cmcmc,
-    niter = 60000,
-    nburnin = 20000,
-    thin = 10,
-    nchains = 3,
-    inits = inits,
-    samplesAsCodaMCMC = TRUE,
-    setSeed = 1:3
-  )
-
-  ## ===========================================================================
-  ## SECTION 5 -- SUMMARY
-  ## ===========================================================================
+## ===========================================================================
+## SECTION 5 -- CONSOLE SUMMARY
+##
+## This is the QUICK-LOOK summary, for checking a fit at the console. The
+## shareable, collaborator-facing artefact is the Quarto report:
+##
+##     quarto render reports/leye_ipm_report.qmd
+##
+## which reads the cached posterior, embeds the figures, and carries the
+## interpretation and caveats. This function deliberately no longer writes
+## HTML -- having two HTML generators meant two things to keep in sync, and
+## the one here could not embed its own figures.
+##
+## Defined outside the `if (!SKIP_RUN)` block so it is available when this
+## script is sourced, including by the parallel wrapper, which calls it on
+## the merged multi-chain `samples`.
+## ===========================================================================
+summarize_ipm <- function(
+  samples,
+  ipm_years,
+  T,
+  cjs_int_start,
+  plot_dir = "output/plots"
+) {
   library(MCMCvis)
   library(gt)
 
-  # Render a summary vector/matrix/data.frame as a gt table. Matrices with
-  # row names (e.g. from rbind()/apply()) get those names as a leading
-  # column; plain named vectors (e.g. from q()) become a single-row table.
-  # Tables are also saved as self-contained HTML files so results are
-  # captured when this section runs non-interactively (e.g. via Rscript or
-  # the parallel wrapper), where the gt Viewer output wouldn't be visible.
-  summary_table_dir <- "output/summary_tables"
-  if (!dir.exists(summary_table_dir)) {
-    dir.create(summary_table_dir, recursive = TRUE)
+  if (!dir.exists(plot_dir)) {
+    dir.create(plot_dir, recursive = TRUE)
   }
+
+  # Render a summary vector/matrix/data.frame as a table. Matrices with row
+  # names (e.g. from rbind()/apply()) get those names as a leading column;
+  # plain named vectors (e.g. from q()) become a single-row table.
+  #
+  # gt renders to HTML, which is what you want in the RStudio viewer but not
+  # at a terminal -- printing a gt object non-interactively dumps raw markup.
+  # The parallel wrapper runs non-interactively, so fall back to a plain
+  # data.frame print there.
   show_gt <- function(x, title, digits = 3, rowname_col = "parameter") {
     if (!is.data.frame(x)) {
       if (is.matrix(x) && !is.null(rownames(x))) {
@@ -481,14 +478,21 @@ if (!SKIP_RUN) {
       }
     }
     num_cols <- names(x)[vapply(x, is.numeric, logical(1))]
-    tbl <- gt::gt(x) |>
-      gt::tab_header(title = title) |>
-      gt::fmt_number(columns = num_cols, decimals = digits)
-    print(tbl)
-    slug <- tolower(gsub("^_+|_+$", "", gsub("[^A-Za-z0-9]+", "_", title)))
-    gt::gtsave(tbl, file.path(summary_table_dir, paste0(slug, ".html")))
-    invisible(tbl)
+    if (interactive()) {
+      tbl <- gt::gt(x) |>
+        gt::tab_header(title = title) |>
+        gt::fmt_number(columns = num_cols, decimals = digits)
+      print(tbl)
+      return(invisible(tbl))
+    }
+    y <- x
+    y[num_cols] <- lapply(y[num_cols], round, digits)
+    cat("\n", title, "\n", strrep("-", nchar(title)), "\n", sep = "")
+    print(y, row.names = FALSE)
+    invisible(x)
   }
+
+  report_note <- function(...) cat(paste0(...))
 
   # N_rec/Imm/N_surv/R_mean/S_mean are only defined for t >= 3 (recruitment
   # carries a two-year lag). Their t = 1,2 columns carry non-finite entries
@@ -538,7 +542,7 @@ if (!SKIP_RUN) {
     ),
     "Baseline adult survival phi_ad (untagged, female) by transition"
   )
-  cat(sprintf(
+  report_note(sprintf(
     "pooled pre-2014 (phi_pre): %.3f | pooled 2025->2026 (phi_post): %.3f\n",
     mean(mat[, "phi_pre"]),
     mean(mat[, "phi_post"])
@@ -555,28 +559,31 @@ if (!SKIP_RUN) {
     "Survival covariate effects (logit scale) and odds ratios",
     rowname_col = "effect"
   )
-  cat("Odds ratios (exp):\n")
-  cat(sprintf(
+  report_note("Odds ratios (exp):\n")
+  report_note(sprintf(
     "  geolocator vs untagged: %.2f (%.2f, %.2f)\n",
     exp(mean(mat[, "bTag_phi[2]"])),
     exp(quantile(mat[, "bTag_phi[2]"], .025)),
     exp(quantile(mat[, "bTag_phi[2]"], .975))
   ))
-  cat(sprintf(
+  report_note(sprintf(
     "  GPS vs untagged:        %.2f (%.2f, %.2f)\n",
     exp(mean(mat[, "bTag_phi[3]"])),
     exp(quantile(mat[, "bTag_phi[3]"], .025)),
     exp(quantile(mat[, "bTag_phi[3]"], .975))
   ))
-  cat(sprintf(
+  report_note(sprintf(
     "P(geolocator reduces survival): %.3f | P(GPS reduces survival): %.3f\n",
     mean(mat[, "bTag_phi[2]"] < 0),
     mean(mat[, "bTag_phi[3]"] < 0)
   ))
 
-  cat("\n--- Recapture: baseline + tag effects on p ---\n")
-  cat(sprintf("baseline p (untagged): %.3f\n", plogis(mean(mat[, "lp_base"]))))
-  cat(sprintf(
+  report_note("\n--- Recapture: baseline + tag effects on p ---\n")
+  report_note(sprintf(
+    "baseline p (untagged): %.3f\n",
+    plogis(mean(mat[, "lp_base"]))
+  ))
+  report_note(sprintf(
     "  tag effect on p (geo): OR %.2f | (GPS): OR %.2f\n",
     exp(mean(mat[, "bTag_p[2]"])),
     exp(mean(mat[, "bTag_p[3]"]))
@@ -587,7 +594,7 @@ if (!SKIP_RUN) {
     data.frame(year = ipm_years, round(fr, 3)),
     "Fecundity f_rate (chicks/pair) by year"
   )
-  cat(sprintf(
+  report_note(sprintf(
     "pooled 2026 (beyond count series): %.3f\n",
     mean(mat[, paste0("f_rate[", T + 1, "]")])
   ))
@@ -601,7 +608,7 @@ if (!SKIP_RUN) {
     "Population growth lambda"
   )
   geolam <- exp(mean(log(rowMeans(mat[, paste0("lambda[", 1:(T - 1), "]")]))))
-  cat(sprintf(
+  report_note(sprintf(
     "Approx geometric-mean lambda: %.3f (%.1f%%/yr)\n",
     geolam,
     100 * (geolam - 1)
@@ -647,13 +654,13 @@ if (!SKIP_RUN) {
   )
 
   show_gt(round(q(mat[, "omega"]), 3), "Immigration omega")
-  cat(sprintf("P(omega > 0.01): %.3f\n", mean(mat[, "omega"] > 0.01)))
+  report_note(sprintf("P(omega > 0.01): %.3f\n", mean(mat[, "omega"] > 0.01)))
   # Recruitment and immigration both add birds; report their relative
   # contribution to annual gains so the trade-off is visible.
   Rm <- mat[, paste0("N_rec[", 3:T, "]"), drop = FALSE]
   Im <- mat[, paste0("Imm[", 3:T, "]"), drop = FALSE]
   frac <- rowSums(Rm) / (rowSums(Rm) + rowSums(Im))
-  cat(sprintf(
+  report_note(sprintf(
     "Share of annual gains from local recruitment: %.3f (%.3f, %.3f)\n",
     mean(frac),
     quantile(frac, .025),
@@ -688,10 +695,6 @@ if (!SKIP_RUN) {
   )
 
   # ---- abundance trajectory plot ---------------------------------------------
-  plot_dir <- "output/plots"
-  if (!dir.exists(plot_dir)) {
-    dir.create(plot_dir, recursive = TRUE)
-  }
   Nt <- t(apply(mat[, paste0("N_tot[", 1:T, "]")], 2, q))
   # png(file.path(plot_dir, "leye_ipm_abundance.png"), width=1600, height=1000, res=200)
   par(mar = c(4.5, 4.5, 2.5, 1))
@@ -713,7 +716,7 @@ if (!SKIP_RUN) {
   lines(ipm_years, Nt[, 1], col = "firebrick", lwd = 2)
   points(ipm_years, Nt[, 1], pch = 16, col = "firebrick")
   # dev.off()
-  cat("\nWrote: leye_ipm_abundance.png\n")
+  report_note("\n[figure] population trajectory drawn\n")
 
   # =============================================================================
   # Forest plot: sex + tag covariate effects from the LEYE IPM
@@ -810,12 +813,18 @@ if (!SKIP_RUN) {
     col = "grey30"
   )
   # dev.off()
-  cat("Wrote: leye_covariate_forest.png\n\n")
+  report_note("[figure] covariate forest plot drawn\n\n")
 
-  cat("Survival effects (odds-ratio scale):\n")
-  print(round(phi_rows, 3))
-  cat("\nRecapture effects (odds-ratio scale):\n")
-  print(round(p_rows, 3))
+  show_gt(
+    round(phi_rows, 3),
+    "Survival effects (odds-ratio scale)",
+    rowname_col = "contrast"
+  )
+  show_gt(
+    round(p_rows, 3),
+    "Recapture effects (odds-ratio scale)",
+    rowname_col = "contrast"
+  )
 
   # =============================================================================
   # Figure: baseline adult annual survival from the LEYE IPM (covariate model)
@@ -900,13 +909,59 @@ if (!SKIP_RUN) {
     adj = 0.02
   )
   # dev.off()
-  cat("Wrote: leye_survival_adult.png\n")
+  report_note("[figure] baseline adult survival drawn\n")
 
-  cat("\nAdult survival (baseline):\n")
-  print(
+  show_gt(
     data.frame(transition = paste0(trans_yr, "-", trans_yr + 1), round(ad, 3)),
-    row.names = FALSE
+    "Adult survival (baseline)"
   )
+
+  cat(
+    "\n---------------------------------------------------------------\n",
+    "Console summary complete. For the shareable report (figures\n",
+    "embedded, interpretation and caveats included), run:\n\n",
+    "    quarto render reports/leye_ipm_report.qmd\n",
+    "---------------------------------------------------------------\n",
+    sep = ""
+  )
+
+  invisible(list(mat = mat, phi_rows = phi_rows, p_rows = p_rows))
+}
+
+if (!SKIP_RUN) {
+  Rmodel <- nimbleModel(
+    ipmCode,
+    constants = constants,
+    data = data,
+    inits = inits(),
+    calculate = FALSE
+  )
+  conf <- configureMCMC(Rmodel, monitors = monitors)
+  Rmcmc <- buildMCMC(conf)
+  Cmodel <- compileNimble(Rmodel)
+  Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
+
+  # Was niter = nburnin = 10, which returns ZERO posterior draws and makes
+  # every summary below fail. Use the parallel wrapper for production runs;
+  # these settings make the serial path self-contained and actually runnable.
+  samples <- runMCMC(
+    Cmcmc,
+    niter = 60000,
+    nburnin = 20000,
+    thin = 10,
+    nchains = 3,
+    inits = inits,
+    samplesAsCodaMCMC = TRUE,
+    setSeed = 1:3
+  )
+
+  ## ===========================================================================
+  ## SECTION 5 -- SUMMARY
+  ## (defined above; called here on this run's own 3-chain `samples`)
+  ## ===========================================================================
+  summary_out <- summarize_ipm(samples, ipm_years, T, cjs_int_start)
+  mat <- summary_out$mat
+
   # =============================================================================
   # Retrospective Analyses --------------------------------------------------
   # =============================================================================
