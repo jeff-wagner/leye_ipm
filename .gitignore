@@ -5,6 +5,13 @@
 # small and serve as a record of each fit.
 *.rds
 
+# ---- Rendered reports ---------------------------------------------------
+# The rendered HTML under reports/ IS tracked deliberately, so collaborators
+# who don't run R can open the current results straight from the repo. It is
+# self-contained (~2.4 MB) and is rewritten on every render, so each render
+# adds a full copy to history -- re-render only when the results change, not
+# as a matter of routine.
+
 # ---- R session artefacts ------------------------------------------------
 .Rhistory
 .Rapp.history

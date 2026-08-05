@@ -31,9 +31,46 @@ parallel wrapper, which runs one chain per core:
 Rscript scripts/LEYE_IPM_run_parallel.R
 ```
 
+Either route caches the posterior to `LEYE_IPM_samples.rds`. Then build the
+shareable report:
+
+```bash
+quarto render reports/leye_ipm_report.qmd
+```
+
 **Requirements:** R (developed against 4.6.x) with `nimble`, `coda`, `MCMCvis`,
 `tidyverse`, and `readxl`. The data-preparation scripts additionally need
-dplyr ≥ 1.2 (they use `filter_out()`).
+dplyr ≥ 1.2 (they use `filter_out()`). The report additionally needs Quarto plus
+`gt`, `ggplot2`, `patchwork` and `here`.
+
+---
+
+## Reports
+
+**`reports/leye_ipm_report.qmd` is the artefact to share with collaborators.** It
+reads the cached posterior — it does *not* refit — so rendering takes seconds.
+
+It produces a single self-contained HTML file (`embed-resources: true`), so the
+output can be emailed or dropped in a shared folder and will open anywhere with
+no supporting files. Figures are embedded, code is folded away by default, and
+the interpretation and caveats travel with the numbers.
+
+By default it picks the most recent `LEYE_IPM_samples*.rds` in the project root.
+To point it at a specific fit:
+
+```bash
+quarto render reports/leye_ipm_report.qmd -P samples_path:LEYE_IPM_samples.rds
+```
+
+The rendered HTML **is** tracked, so collaborators who don't run R can open the
+current results directly from the repo. Because each render rewrites the whole
+self-contained file, re-render when the results actually change rather than
+routinely, to keep history from filling with near-duplicate copies.
+
+`summarize_ipm()` in `LEYE_IPM.R` remains as a **console** quick-look for
+checking a fit at the terminal. It no longer writes HTML: two HTML generators
+meant two things to keep in sync, and the in-script one could not embed its own
+figures.
 
 ---
 
@@ -49,6 +86,13 @@ dplyr ≥ 1.2 (they use `filter_out()`).
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
 | `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history. **Partly simulated — see the caveat below.** |
 | `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM. |
+
+### `reports/` — collaborator-facing output
+
+| File | Purpose |
+|---|---|
+| `leye_ipm_report.qmd` | Quarto results report. Reads the cached posterior; does not refit. |
+| `report.css` | Styling for the report's headline result cards. |
 
 ### `data/`
 

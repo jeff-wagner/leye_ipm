@@ -153,16 +153,27 @@ cat(sprintf(
 ## ---------------------------------------------------------------------------
 library(coda)
 library(tidyr)
+# NOTE: lapply() over an mcmc.list returns a PLAIN LIST -- it drops the class.
+# as.matrix() on a plain list silently returns a 3 x 1 matrix instead of the
+# full draws, so anything reloading this cache would be summarising garbage.
+# Re-wrap before saving.
 samples <- as.mcmc.list(chain_list) |>
-  lapply(function(x) replace(x, is.na(x), 0))
+  lapply(function(x) replace(x, is.na(x), 0)) |>
+  as.mcmc.list()
 
-# Quick convergence peek (your full summary script can run as-is after this)
-cat("\nTop Rhat values:\n")
-gd <- gelman.diag(samples, multivariate = FALSE)$psrf
-print(round(head(gd[order(-gd[, 1]), ], 10), 3))
-cat(sprintf(
-  "\nParams with Rhat > 1.05: %d\n",
-  sum(gd[, 1] > 1.05, na.rm = TRUE)
-))
+# Stable filename: the Quarto report picks the most recent LEYE_IPM_samples*.rds
+# by default, and a fixed name keeps re-runs from accumulating dated caches.
+saveRDS(samples, "LEYE_IPM_samples.rds")
 
-saveRDS(samples, "LEYE_IPM_samples_20260803.rds") # cache to avoid refitting
+## ---------------------------------------------------------------------------
+## 5. Summary. `summarize_ipm` (defined by the source() call above) prints a
+##    quick-look console summary of the pooled, multi-chain `samples`.
+##
+##    The shareable, collaborator-facing artefact is the Quarto report, which
+##    reads the cache saved above, embeds the figures, and carries the
+##    interpretation and caveats:
+##
+##        quarto render reports/leye_ipm_report.qmd
+## ---------------------------------------------------------------------------
+summary_out <- summarize_ipm(samples, ipm_years, T, cjs_int_start)
+cat(sprintf("\nPooled %d-chain summary printed above.\n", nchains))
