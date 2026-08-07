@@ -55,17 +55,25 @@ setwd(proj)
 SKIP_RUN <- TRUE
 source("scripts/LEYE_IPM.R")
 
-# Locate the cached posterior. Default: most recent LEYE_IPM_samples*.rds.
+# Locate the cached posterior.
+#
+# Use the CANONICAL filename, not a newest-match glob. A glob on
+# LEYE_IPM_samples*.rds also matches companion and archive fits
+# (vague-priors, time-varying-omega, dated caches), and picking whichever is
+# newest silently builds the report from whichever model was last refitted.
+# That fails loudly only if the parameter names happen to differ; if they
+# match, the report renders cleanly from the wrong posterior.
+CANONICAL <- "LEYE_IPM_samples.rds"
 samples_path <- params$samples_path
 if (is.null(samples_path)) {
-  cand <- list.files(".", "^LEYE_IPM_samples.*\\.rds$", full.names = TRUE)
-  if (!length(cand)) {
+  if (!file.exists(CANONICAL)) {
     stop(
-      "No cached posterior found. Fit the model first (scripts/LEYE_IPM.R or ",
-      "scripts/LEYE_IPM_run_parallel.R), or pass -P samples_path:<file>."
+      "No cached posterior at '", CANONICAL, "'. Fit the model first ",
+      "(scripts/LEYE_IPM.R or scripts/LEYE_IPM_run_parallel.R), or pass ",
+      "-P samples_path:<file>."
     )
   }
-  samples_path <- cand[which.max(file.mtime(cand))]
+  samples_path <- CANONICAL
 }
 
 # The parallel wrapper's lapply() strips the mcmc.list class, and as.matrix()
@@ -515,6 +523,42 @@ indicative, not as a finding.
 
 # Productivity
 
+Chicks per nest are modelled in **two parts**: whether the nest succeeded at all,
+and how many of a four-egg clutch fledged given that it did.
+
+```{r}
+#| label: prod-params
+#| echo: false
+#| results: asis
+
+s_bar <- rowMeans(mat[, paste0("s_nest[", 1:(T + 1), "]")])
+cat(sprintf(
+  paste0(
+    "Nest success averages **%.2f** (95%% CrI %.2f–%.2f) and, given success, ",
+    "each egg fledges with probability **%.2f** (%.2f–%.2f). Mean chicks per ",
+    "nest is the product of the two with clutch size, so `f_rate` keeps the ",
+    "same meaning it had under the earlier single-distribution model and the ",
+    "recruitment equation is unchanged.\n\n"
+  ),
+  mean(s_bar), quantile(s_bar, .025), quantile(s_bar, .975),
+  mean(mat[, "q_brood"]), quantile(mat[, "q_brood"], .025),
+  quantile(mat[, "q_brood"], .975)
+))
+```
+
+::: {.callout-note appearance="simple"}
+A single Poisson on chicks per nest was **rejected** by the posterior predictive
+check (see @sec-gof). The observed counts are bimodal — 0, 2, 3 or 4 chicks, with
+**no nest producing exactly one** — because a four-egg-clutch shorebird either
+loses the nest entirely or fledges a near-full brood. A Poisson cannot generate
+that shape at any mean; at the observed mean it expects roughly 16 single-chick
+nests. The two-part model reproduces the observed frequencies closely.
+
+This also tightened productivity in years with few monitored nests, where the
+old model fitted a free annual mean to as few as two or three nests. The two-part
+version borrows strength through the shared clutch size and fledging rate.
+:::
+
 ```{r}
 #| label: fig-fec
 #| fig-cap: "Estimated chicks per pair. The final year is estimated from productivity data that has no matching count year and does not feed the population process."
@@ -665,7 +709,9 @@ if (length(zeros)) {
 }
 ```
 
-# Convergence
+# Model checking
+
+## Convergence
 
 ```{r}
 #| label: tbl-rhat
@@ -675,7 +721,7 @@ keyp <- intersect(
   c(
     "pi_rec", "kappa", "psi1", "psi2", "omega", "omega_bar", "sd_omega",
     "phi_pre", "phi_post",
-    "mu_f", "lp_base", "logB0",
+    "mu_s", "q_brood", "sd_s", "lp_base", "logB0",
     "bSex_phi[2]", "bSex_phi[3]", "bTag_phi[2]", "bTag_phi[3]",
     "bTag_p[2]", "bTag_p[3]"
   ),
@@ -709,6 +755,99 @@ if (any(gd[rownames(gd) == "logB0", 1] > 1.05)) {
   )
 }
 ```
+
+## Goodness of fit {#sec-gof}
+
+An IPM can fit one data source well and another badly, and a single pooled
+statistic would hide that. Each stream is therefore checked separately, using a
+Freeman–Tukey discrepancy between the observed data and replicates drawn from
+the fitted model. The Bayesian *p*-value is P(replicated > observed); values near
+0.5 indicate the model reproduces that stream, values near 0 or 1 indicate misfit.
+
+```{r}
+#| label: tbl-gof
+#| echo: false
+
+gof <- data.frame(
+  Stream = c("Counts", "Productivity", "Mark–resight"),
+  p = c(
+    mean(mat[, "FT_count_rep"] > mat[, "FT_count_obs"]),
+    mean(mat[, "FT_prod_rep"] > mat[, "FT_prod_obs"]),
+    mean(mat[, "FT_cjs_rep"] > mat[, "FT_cjs_obs"])
+  )
+)
+names(gof)[2] <- "Bayesian p"
+tbl(gof, "Posterior predictive checks", dec = 3) |>
+  cols_align("left", columns = Stream) |>
+  data_color(
+    columns = `Bayesian p`,
+    fn = function(x) ifelse(x < 0.05 | x > 0.95, "#f8d7da", "#d4edda")
+  )
+```
+
+::: {.callout-note appearance="simple"}
+This check earned its keep. The productivity component originally used a single
+Poisson and returned *p* = 0.000 — decisive misfit — which led to the two-part
+nest-success × brood-size model now in use.
+
+Worth noting for anyone repeating this: the productivity data have
+**variance/mean = 1.18**, so a routine overdispersion check would have passed
+them. The misfit was in *shape*, not variance, and only a discrepancy measure
+sensitive to the whole distribution detected it.
+:::
+
+## Prior sensitivity {#sec-prior-sens}
+
+Recruitment carries informative priors derived from the 1990s chick analysis, so
+the obvious question is whether the result is data-driven or prior-driven. The
+comparison below refits the model with flat `Beta(1, 1)` priors on both
+recruitment parameters, changing nothing else.
+
+```{r}
+#| label: tbl-prior-sens
+#| echo: false
+#| results: asis
+
+sens_path <- "LEYE_IPM_samples_vaguepriors.rds"
+if (file.exists(sens_path)) {
+  sv <- readRDS(sens_path)
+  if (!inherits(sv, "mcmc.list")) sv <- coda::as.mcmc.list(sv)
+  mv <- as.matrix(sv)
+  fmt <- function(m, p) {
+    sprintf("%.3f (%.3f–%.3f)", mean(m[, p]), quantile(m[, p], .025), quantile(m[, p], .975))
+  }
+  gl <- function(m) {
+    l <- rowMeans(m[, paste0("lambda[", 1:(T - 1), "]")])
+    sprintf("%.3f (%.3f–%.3f)", exp(mean(log(l))), exp(quantile(log(l), .025)), exp(quantile(log(l), .975)))
+  }
+  ps <- data.frame(
+    Parameter = c("pi_rec (recruitment level)", "kappa (fraction at age 1)", "λ (geometric mean)"),
+    Informative = c(fmt(mat, "pi_rec"), fmt(mat, "kappa"), gl(mat)),
+    Vague = c(fmt(mv, "pi_rec"), fmt(mv, "kappa"), gl(mv))
+  )
+  print(tbl(ps, "Informative vs vague recruitment priors") |>
+    cols_align("left", columns = everything()))
+} else {
+  cat(
+    "*Companion fit `", sens_path, "` not found. To regenerate: refit with ",
+    "`a_pi = b_pi = a_kap = b_kap = 1` in `constants` — the prior ",
+    "hyperparameters are passed as constants precisely so this is a config ",
+    "change rather than a second copy of the model.*\n",
+    sep = ""
+  )
+}
+```
+
+::: {.callout-important appearance="simple"}
+**The recruitment level is not an artifact of the prior; the timing is.**
+
+Under a flat prior `pi_rec` barely moves, so the count data pull it to the same
+place either way. `kappa` also keeps its central value but its interval widens
+dramatically — the age-1 versus age-2 split rests entirely on the 1990s chick
+histories, not on anything in the modern data. Since those cohorts are partly
+simulated (see [Caveats]), the recruitment *schedule* is the weakest link in
+this analysis, while the recruitment *rate* is on firmer ground.
+:::
 
 # Caveats {#caveats}
 

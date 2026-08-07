@@ -62,15 +62,19 @@ set.seed(20260805)
 ## SECTION 1 -- LOAD
 ## ===========================================================================
 tltre_load <- function(samples_path = NULL) {
+  # Canonical filename, NOT a newest-match glob. A glob on LEYE_IPM_samples*.rds
+  # also matches companion and archive fits (vague-priors, time-varying-omega,
+  # dated caches); taking whichever is newest silently decomposes whichever
+  # model happened to be refitted last.
   if (is.null(samples_path)) {
-    cand <- list.files(".", "^LEYE_IPM_samples.*\\.rds$", full.names = TRUE)
-    if (!length(cand)) {
+    samples_path <- "LEYE_IPM_samples.rds"
+    if (!file.exists(samples_path)) {
       stop(
-        "No cached posterior found. Fit the model first with ",
-        "scripts/LEYE_IPM_run_parallel.R (or scripts/LEYE_IPM.R)."
+        "No cached posterior at '", samples_path, "'. Fit the model first with ",
+        "scripts/LEYE_IPM_run_parallel.R (or scripts/LEYE_IPM.R), or pass ",
+        "samples_path explicitly."
       )
     }
-    samples_path <- cand[which.max(file.mtime(cand))]
   }
   s <- readRDS(samples_path)
   # The parallel wrapper's lapply() used to strip the mcmc.list class, and
