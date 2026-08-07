@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>plan</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="PLAN_files/libs/clipboard/clipboard.min.js"></script>
+<script src="PLAN_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="PLAN_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="PLAN_files/libs/quarto-html/popper.min.js"></script>
+<script src="PLAN_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="PLAN_files/libs/quarto-html/anchor.min.js"></script>
+<link href="PLAN_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="PLAN_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="PLAN_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="PLAN_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="PLAN_files/libs/bootstrap/bootstrap-efbb37e9afcc02144ebbc7afd12a776f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="manuscript-plan" class="level1">
+<h1>Manuscript plan</h1>
+<p>Working document. Tick items as they are completed; amend freely.</p>
+<p><strong>Paper:</strong> single combined manuscript — integrated population model for a breeding Lesser Yellowlegs population, Anchorage, Alaska. <strong>Audience:</strong> shorebird / ornithology researchers. <strong>Candidate journals:</strong> <em>Ornithological Applications</em> (published the recent LEYE Prairie Pothole migration paper, so the species and audience are established there), <em>Ibis</em>, <em>Journal of Avian Biology</em>, <em>Wader Study</em>.</p>
+<hr>
+<section id="the-argument" class="level2">
+<h2 class="anchored" data-anchor-id="the-argument">1. The argument</h2>
+<section id="why-anyone-should-care" class="level3">
+<h3 class="anchored" data-anchor-id="why-anyone-should-care">Why anyone should care</h3>
+<ul>
+<li>Lesser Yellowlegs declined ~63% over four decades and is a species of high conservation concern.</li>
+<li><strong>Field-based survival data for the species is scarce.</strong> Existing population modelling rests on BBS/CBC indices fitted with state-space logistic models — not on measured vital rates.</li>
+<li>Harvest sustainability assessments in the Americas (18,000–47,000 birds/year) need adult survival estimates that currently barely exist.</li>
+<li>There is an active GPS-tracking programme for this species generating migration and connectivity papers. If tags materially reduce survival, that bears on those studies’ inference and on deployment ethics.</li>
+</ul>
+</section>
+<section id="what-this-paper-claims" class="level3">
+<h3 class="anchored" data-anchor-id="what-this-paper-claims">What this paper claims</h3>
+<ol type="1">
+<li>Vital rates for a breeding LEYE population from an IPM combining counts, mark–resight, and productivity — adult apparent survival ≈ 0.63–0.70.</li>
+<li><strong>Recruitment is delayed and low.</strong> Locally-produced young recruit at ages 1 and 2 in roughly equal proportion, not entirely at age 1 as commonly assumed. Total probability of recruiting locally ≈ 10%.</li>
+<li><strong>GPS tags substantially reduce apparent survival</strong> — a ~45% relative reduction, several times the published geolocator benchmark.</li>
+<li><strong>Demographic stochasticity dominates variation in growth rate</strong> in a population this small, which has direct consequences for monitoring design.</li>
+<li>The population trend is negative but imprecise.</li>
+</ol>
+</section>
+<section id="framing-constraints-accept-these-early-do-not-overreach" class="level3">
+<h3 class="anchored" data-anchor-id="framing-constraints-accept-these-early-do-not-overreach">Framing constraints — accept these early, do not overreach</h3>
+<ul>
+<li><strong>λ = 0.967 (0.917–1.033). The interval includes 1.</strong> This is <em>not</em> a demonstrated decline. Write “probably declining, most consistent with a slow decrease” and let the vital rates carry the paper.</li>
+<li><strong>Recruitment and immigration are confounded.</strong> Both add birds and the relative-scale count index cannot separate them. Report the split as indicative.</li>
+<li><strong>Abundance is relative.</strong> No absolute population size anywhere in the paper.</li>
+<li><strong><code>psi</code> is not juvenile survival.</strong> It is survive-<em>and</em>-return-locally. Do not compare it to published juvenile survival estimates; reviewers familiar with the literature will notice if we do.</li>
+</ul>
+</section>
+<section id="the-tag-result-how-to-make-it-credible" class="level3">
+<h3 class="anchored" data-anchor-id="the-tag-result-how-to-make-it-credible">The tag result — how to make it credible</h3>
+<p>The GPS effect is large enough that reviewers will look for an artifact. Three defences, in order of strength:</p>
+<ol type="1">
+<li><strong>Internal calibration.</strong> Our geolocator estimate (≈10% absolute reduction) reproduces Weiser et al.&nbsp;(2016), who found ~8%/yr for leg-mounted geolocators across 16 Arctic-breeding shorebird species. The same model, same data, same priors returns the literature value for geolocators and a much larger value for GPS. That is hard to explain as a modelling artifact.</li>
+<li><strong>Not a detection artifact.</strong> The model estimates tag effects on resighting separately. GPS birds show no detection penalty (OR 0.90, P(&lt;1) = 0.59), so the survival effect is not birds becoming harder to see. Notably geolocator birds <em>do</em> show one (OR 0.52, P(&lt;1) = 0.97) — worth reporting in its own right.</li>
+<li><strong>Mechanistically expected direction.</strong> Brlík et al.&nbsp;(2020) found effects scale with relative device load and with harness attachment; GPS tags increase both.</li>
+</ol>
+<p><strong>Caveat that must be stated plainly:</strong> this is <em>apparent</em> survival. Tag-induced dispersal is not separable from mortality here.</p>
+<hr>
+</section>
+</section>
+<section id="status" class="level2">
+<h2 class="anchored" data-anchor-id="status">2. Status</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>IPM structure, fitting, convergence</td>
+<td>Done</td>
+</tr>
+<tr class="even">
+<td>tLTRE</td>
+<td>Done</td>
+</tr>
+<tr class="odd">
+<td>Quarto report with publication-quality figures</td>
+<td>Done</td>
+</tr>
+<tr class="even">
+<td>Recruitment estimates</td>
+<td><strong>Blocked — see Phase 0</strong></td>
+</tr>
+<tr class="odd">
+<td>Goodness-of-fit / posterior predictive checks</td>
+<td><strong>Missing</strong></td>
+</tr>
+<tr class="even">
+<td>Tag-effect robustness analyses</td>
+<td><strong>Missing</strong></td>
+</tr>
+<tr class="odd">
+<td>Novelty check (is this the first LEYE IPM?)</td>
+<td><strong>Not done</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="phase-0-data-resolution-blocking-do-first" class="level2">
+<h2 class="anchored" data-anchor-id="phase-0-data-resolution-blocking-do-first">3. Phase 0 — data resolution (blocking, do first)</h2>
+<p>The 1990s chick cohort denominators for 1995/1997/1998 are currently <em>simulated</em> (<code>rpois(4, 0.85 * num_broods96)</code>, an explicitly arbitrary mean). Recruitment probability scales inversely with them, and they propagate into the IPM as priors. This cannot go to review as-is.</p>
+<ul class="task-list">
+<li><label><input type="checkbox">Recover the real 1995/1997/1998 chick banding totals from the original records.</label></li>
+<li><label><input type="checkbox">Rebuild <code>data/LEYE_juv_EH_1995_2000.csv</code> from real denominators. <code>scripts/create_juv_eh_1995_2000.R</code> is now seeded, so the rebuild is reproducible. Delete the simulation branch once real totals are in.</label></li>
+<li><label><input type="checkbox">Confirm whether the 1990s chicks carried colour marks (the juvenile module currently shares detection between chicks and adults on that assumption; if they were metal-band-only, detection was lower and <code>psi</code> is underestimated).</label></li>
+<li><label><input type="checkbox">Refit <code>scripts/LEYE_juv90_module.R</code> → new <code>pi_rec</code> / <code>kappa</code> priors.</label></li>
+<li><label><input type="checkbox">Update the Beta priors in <code>scripts/LEYE_IPM.R</code> (currently <code>dbeta(2.268, 13.610)</code> and <code>dbeta(6.054, 6.309)</code>).</label></li>
+<li><label><input type="checkbox">Refit the IPM, re-run the tLTRE, re-render the report.</label></li>
+<li><label><input type="checkbox"><strong>Re-check whether any conclusion changed.</strong> Recruitment feeds λ and the tLTRE.</label></li>
+</ul>
+<hr>
+</section>
+<section id="phase-1-analyses-to-add-before-writing" class="level2">
+<h2 class="anchored" data-anchor-id="phase-1-analyses-to-add-before-writing">4. Phase 1 — analyses to add before writing</h2>
+<section id="reviewers-will-ask-for-these" class="level3">
+<h3 class="anchored" data-anchor-id="reviewers-will-ask-for-these">Reviewers will ask for these</h3>
+<ul class="task-list">
+<li><label><input type="checkbox"><strong>Posterior predictive checks / goodness-of-fit.</strong> Currently absent entirely. Standard expectation for IPMs. At minimum: counts (overdispersion), CJS (e.g.&nbsp;Test 2/Test 3 style or a Bayesian p-value), productivity.</label></li>
+<li><label><input type="checkbox"><strong>Prior sensitivity on recruitment.</strong> <code>psi</code> carries informative priors; show the result under a vague alternative so the conclusion is not prior-driven.</label></li>
+<li><label><input type="checkbox"><strong>Novelty check.</strong> Establish whether a field-based IPM exists for this species. Frame claims accordingly.</label></li>
+</ul>
+</section>
+<section id="strengthening-the-tag-result" class="level3">
+<h3 class="anchored" data-anchor-id="strengthening-the-tag-result">Strengthening the tag result</h3>
+<ul class="task-list">
+<li><label><input type="checkbox"><strong>Time-since-tagging effect.</strong> Pakanen et al.&nbsp;(2020) found survival declines with duration carrying the device. Our model assumes a constant tag effect. Test it — a reviewer aware of that paper will ask.</label></li>
+<li><label><input type="checkbox"><strong>Tag mass as % of body mass.</strong> The standard currency in this literature; the 3% threshold is the reference point. LEYE mean mass here is 82.7 g (n = 395). Need the actual GPS and geolocator specs.</label></li>
+<li><label><input type="checkbox"><strong>Selection bias.</strong> Were tagged birds chosen non-randomly? Compare <code>init_mass</code>, <code>mean_wing</code>, <code>mean_tarsus</code>, <code>mean_tot_head</code> across tag classes. If GPS went on larger birds, address it.</label></li>
+<li><label><input type="checkbox"><strong>Standalone CJS check.</strong> Confirm the tag effect is not an artifact of IPM linkage, so reviewers need not evaluate the whole model to accept it.</label></li>
+<li><label><input type="checkbox">Attachment method (harness vs leg-mount) for each tag type — a documented effect modifier.</label></li>
+</ul>
+</section>
+<section id="optional-but-valuable" class="level3">
+<h3 class="anchored" data-anchor-id="optional-but-valuable">Optional but valuable</h3>
+<ul class="task-list">
+<li><label><input type="checkbox">Balanced-panel count sensitivity — <code>scripts/LEYE_trend_NB_coreSites_balancedPanel.R</code> already exists and addresses whether the trend is an artifact of growing site coverage (13 → ~32 wetlands).</label></li>
+<li><label><input type="checkbox">Power/monitoring framing: given demographic stochasticity dominates Var(λ), how long must this survey run to detect a decline of a given size? This turns a limitation into a contribution for a monitoring-oriented audience.</label></li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="phase-2-structure" class="level2">
+<h2 class="anchored" data-anchor-id="phase-2-structure">5. Phase 2 — structure</h2>
+<section id="methods" class="level3">
+<h3 class="anchored" data-anchor-id="methods">Methods</h3>
+<ol type="1">
+<li><strong>Study area and field methods</strong> — Anchorage wetlands; volunteer survey design (3 weekly visits, 32 wetlands); banding and resighting; nest monitoring; tag deployment (types, masses, attachment, years).</li>
+<li><strong>Data sources</strong> — counts 2014–2025 (855 records); adult encounter histories 2010–2026 (213 individuals); productivity 2018–2026 (77 nests); 1990s chick cohorts.</li>
+<li><strong>IPM structure</strong> — process model with delayed recruitment; the two-year lag and why; survival with sex and tag covariates; relative-scale count observation model.</li>
+<li><strong>Recruitment sub-model</strong> — the 1990s chick+adult joint analysis, marginalising over recruitment age. Explain <em>why</em>: a chick first seen at age 2 may have recruited at age 1 and been missed, so raw return rates confound timing with detection.</li>
+<li><strong>tLTRE</strong> — level and variance decomposition; explicit separation of demographic stochasticity.</li>
+<li><strong>Implementation</strong> — NIMBLE, chains/iterations/convergence, priors table.</li>
+</ol>
+</section>
+<section id="results" class="level3">
+<h3 class="anchored" data-anchor-id="results">Results</h3>
+<ol type="1">
+<li>Adult survival, and sex effect (males higher: OR 1.55, 1.01–2.39).</li>
+<li>Tag effects on survival and on resighting.</li>
+<li>Recruitment: delayed, split between ages 1 and 2, low overall.</li>
+<li>Productivity.</li>
+<li>Population trajectory and λ.</li>
+<li>tLTRE: what sustains the population; what drives variation.</li>
+</ol>
+</section>
+<section id="discussion" class="level3">
+<h3 class="anchored" data-anchor-id="discussion">Discussion</h3>
+<ol type="1">
+<li><strong>Delayed recruitment</strong> — natural-history contribution; consequences for any LEYE population model assuming age-1 breeding, including harvest assessments.</li>
+<li><strong>Tag effects</strong> — magnitude vs the geolocator literature; implications for deployment, permitting, and for inference in existing tracking studies.</li>
+<li><strong>Adult survival in context</strong> — relevance to harvest sustainability.</li>
+<li><strong>What limits inference</strong> — demographic stochasticity; recruitment/immigration confounding; relative-scale abundance. Frame the stochasticity result as a monitoring-design contribution, not an apology.</li>
+<li><strong>Conservation implications.</strong></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="figures-and-tables" class="level2">
+<h2 class="anchored" data-anchor-id="figures-and-tables">6. Figures and tables</h2>
+<p>Most already exist at publication quality in <code>reports/leye_ipm_report.qmd</code>.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Content</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>F1</td>
+<td>Study area map</td>
+<td>New</td>
+</tr>
+<tr class="even">
+<td>F2</td>
+<td>Life-cycle / model schematic with delayed recruitment</td>
+<td>New — worth the effort, the structure is unusual</td>
+</tr>
+<tr class="odd">
+<td>F3</td>
+<td>Population trajectory</td>
+<td>Have</td>
+</tr>
+<tr class="even">
+<td>F4</td>
+<td>Adult survival by year</td>
+<td>Have</td>
+</tr>
+<tr class="odd">
+<td>F5</td>
+<td>Covariate forest plot (sex, tag; survival and resighting)</td>
+<td>Have</td>
+</tr>
+<tr class="even">
+<td>F6</td>
+<td>tLTRE: level + variance decomposition</td>
+<td>Have</td>
+</tr>
+<tr class="odd">
+<td>T1</td>
+<td>Priors and their sources</td>
+<td>New</td>
+</tr>
+<tr class="even">
+<td>T2</td>
+<td>Posterior summaries of vital rates</td>
+<td>Have (report tables)</td>
+</tr>
+<tr class="odd">
+<td>T3</td>
+<td>Survival by sex × tag</td>
+<td>Have</td>
+</tr>
+<tr class="even">
+<td>S1+</td>
+<td>Prior sensitivity, GOF, convergence</td>
+<td>From Phase 1</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions">7. Open questions</h2>
+<ul>
+<li>Authorship and contributions — including the volunteer count programme and the 1990s field crews.</li>
+<li>Data availability statement. Note that the current chick encounter history predates the random seed and is not reproducible from the script; Phase 0 fixes this.</li>
+<li>Whether to report the 1990s-era adult survival (<code>phi_pre</code> ≈ 0.51) as a historical comparison, or leave it as a nuisance parameter.</li>
+<li>How much modelling detail belongs in the main text vs supplement for this audience.</li>
+</ul>
+<hr>
+</section>
+<section id="references-anchored-so-far" class="level2">
+<h2 class="anchored" data-anchor-id="references-anchored-so-far">References anchored so far</h2>
+<ul>
+<li>Weiser et al.&nbsp;2016, <em>Movement Ecology</em> — geolocator effects in 16 Arctic-breeding shorebirds; ~8%/yr reduction in apparent survival for leg-mounted tags.</li>
+<li>Brlík et al.&nbsp;2020, <em>J. Animal Ecology</em> — meta-analysis; weak negative effect on apparent survival, scaling with relative load and harness attachment.</li>
+<li>Pakanen et al.&nbsp;2020, <em>J. Avian Biology</em> — survival declines with time carrying the device.</li>
+<li>Koons et al.&nbsp;2016, 2017 — transient LTRE.</li>
+<li>Dillenseger et al.&nbsp;2026, <em>Oikos</em> — global shorebird survival; immature &lt; adult, breeding-site immature estimates depressed by natal dispersal.</li>
+</ul>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -131,6 +131,12 @@ dp$py_idx <- match(dp$Year, prod_years)
 nProd <- nrow(dp)
 nYearP <- length(prod_years)
 
+# Modal clutch size for the binomial brood-size component (section 2a). Stop if
+# any nest exceeds it, which would mean either a data error or a clutch larger
+# than the model allows -- silently truncating would bias productivity low.
+CLUTCH <- 4L
+stopifnot(max(dp$SpecChickNumber) <= CLUTCH)
+
 # ---- 1d. Master year axis & cross-dataset mappings -------------------------
 ipm_years <- count_years # 2014..2025
 T <- length(ipm_years)
@@ -225,19 +231,38 @@ ipmCode <- nimbleCode({
   # Priors on pi_rec/kappa rather than psi1/psi2 directly because the former
   # are essentially uncorrelated in that posterior (r = -0.01), so independent
   # priors do not distort the joint. Informative but updatable.
-  pi_rec ~ dbeta(2.268, 13.610) # total P(recruit locally): 1990s mean 0.143
-  kappa ~ dbeta(6.054, 6.309) # fraction recruiting at age 1: 1990s mean 0.490
+  # Hyperparameters are CONSTANTS, not literals, so the prior-sensitivity run is
+  # a config change rather than a forked copy of the model. Defaults are the
+  # Beta fits to the 1990s module posterior; pass a_pi = b_pi = a_kap = b_kap = 1
+  # for the vague-prior comparison.
+  pi_rec ~ dbeta(a_pi, b_pi) # total P(recruit locally): 1990s mean 0.143
+  kappa ~ dbeta(a_kap, b_kap) # fraction recruiting at age 1: 1990s mean 0.490
   psi1 <- pi_rec * kappa
   psi2 <- pi_rec * (1 - kappa)
 
   # --- Fecundity (chicks/pair), annual, partially pooled ---
   # f_rate[1..T] drive the recruitment process model (2c); f_rate[T+1] is the
   # pooled 2026 rate, orphaned from the process model until counts catch up.
-  mu_f ~ dnorm(0, sd = 2)
-  sd_f ~ dexp(1)
+  # Two-part: nest success x brood size from a fixed clutch.
+  #
+  # This replaced a Poisson on chicks-per-nest, which failed its posterior
+  # predictive check outright (Bayesian p = 0.000). The data are 0 (n=23),
+  # 1 (n=0), 2 (n=3), 3 (n=17), 4 (n=34) -- bimodal with a structural gap at 1,
+  # because a 4-egg-clutch shorebird either loses the nest entirely or fledges a
+  # near-full brood. A Poisson cannot produce that shape at any mean: at the
+  # observed mean it predicts ~16 nests with exactly one chick, and there are
+  # none. Note var/mean = 1.18, so a routine overdispersion check would have
+  # passed it -- the misfit is in shape, not variance.
+  #
+  # f_rate[t] is unchanged in meaning (mean chicks per nest), so the recruitment
+  # equation and the tLTRE decomposition carry over untouched.
+  mu_s ~ dnorm(0, sd = 1.5) # mean nest success, logit scale
+  sd_s ~ dexp(1)
+  q_brood ~ dbeta(1, 1) # per-egg probability of fledging, given nest success
   for (t in 1:(T + 1)) {
-    log(f_rate[t]) <- mu_f + eps_f[t]
-    eps_f[t] ~ dnorm(0, sd = sd_f)
+    eps_s[t] ~ dnorm(0, sd = sd_s)
+    logit(s_nest[t]) <- mu_s + eps_s[t]
+    f_rate[t] <- s_nest[t] * clutch * q_brood
   }
 
   # --- Immigration ---
@@ -347,9 +372,59 @@ ipmCode <- nimbleCode({
   }
 
   ## ----- 2e. OBSERVATION MODEL 3: FECUNDITY --------------------------------
+  # succ[m] is supplied as data = 1 wherever chicks > 0 (a nest that fledged
+  # young is a successful nest by definition) and NA where chicks = 0, so only
+  # the genuinely ambiguous cases are sampled. Setting prob = 0 for a failed
+  # nest forces chicks = 0 with probability 1.
   for (m in 1:nProd) {
-    chicks[m] ~ dpois(f_rate[pyr[m]])
+    succ[m] ~ dbern(s_nest[pyr[m]])
+    chicks[m] ~ dbin(q_brood * succ[m], clutch)
   }
+
+  ## ----- 2f. POSTERIOR PREDICTIVE CHECKS ------------------------------------
+  # Freeman-Tukey discrepancy, computed separately for each data stream so a
+  # misfit can be located rather than just detected. Replicate data are drawn
+  # from the fitted model; the Bayesian p-value is P(rep > obs), and values
+  # near 0.5 indicate the model reproduces that stream. Values near 0 or 1
+  # indicate misfit.
+  #
+  # One check per stream, because an IPM can fit one source well while fitting
+  # another badly and a single pooled statistic would hide that.
+  for (i in 1:nCount) {
+    count_rep[i] ~ dpois(lam[i])
+    ftc_obs[i] <- pow(sqrt(count[i]) - sqrt(lam[i]), 2)
+    ftc_rep[i] <- pow(sqrt(count_rep[i]) - sqrt(lam[i]), 2)
+  }
+  FT_count_obs <- sum(ftc_obs[1:nCount])
+  FT_count_rep <- sum(ftc_rep[1:nCount])
+
+  # Replicates are drawn through the same two-part structure, including a fresh
+  # success draw -- otherwise the check would condition on the observed
+  # successes and could not detect misfit in the success component.
+  for (m in 1:nProd) {
+    succ_rep[m] ~ dbern(s_nest[pyr[m]])
+    chicks_rep[m] ~ dbin(q_brood * succ_rep[m], clutch)
+    ftp_obs[m] <- pow(sqrt(chicks[m]) - sqrt(f_rate[pyr[m]]), 2)
+    ftp_rep[m] <- pow(sqrt(chicks_rep[m]) - sqrt(f_rate[pyr[m]]), 2)
+  }
+  FT_prod_obs <- sum(ftp_obs[1:nProd])
+  FT_prod_rep <- sum(ftp_rep[1:nProd])
+
+  # CJS: replicate detections conditional on the latent alive-states. Summed
+  # per individual first because the at-risk window is ragged (starts at each
+  # bird's first capture), so a single rectangular sum would pick up undefined
+  # cells.
+  for (i in 1:nind) {
+    for (t in (fcap[i] + 1):nocc) {
+      ych_rep[i, t] ~ dbern(p_ind[i] * zc[i, t])
+      ftm_obs[i, t] <- pow(sqrt(ych[i, t]) - sqrt(p_ind[i] * zc[i, t]), 2)
+      ftm_rep[i, t] <- pow(sqrt(ych_rep[i, t]) - sqrt(p_ind[i] * zc[i, t]), 2)
+    }
+    ft_i_obs[i] <- sum(ftm_obs[i, (fcap[i] + 1):nocc])
+    ft_i_rep[i] <- sum(ftm_rep[i, (fcap[i] + 1):nocc])
+  }
+  FT_cjs_obs <- sum(ft_i_obs[1:nind])
+  FT_cjs_rep <- sum(ft_i_rep[1:nind])
 })
 
 ## ===========================================================================
@@ -372,12 +447,26 @@ constants <- list(
   sex = cjs$sex,
   tag = cjs$tag,
   nProd = nProd,
-  pyr = prod_ipm_idx[dp$py_idx]
+  pyr = prod_ipm_idx[dp$py_idx],
+  # Recruitment prior hyperparameters. Defaults = Beta fits to the 1990s module
+  # posterior. Override with 1,1,1,1 for the vague-prior sensitivity run.
+  a_pi = 2.268,
+  b_pi = 13.610,
+  a_kap = 6.054,
+  b_kap = 6.309,
+  # Modal clutch size. LEYE lay 4 eggs; no nest in these data exceeded 4, which
+  # the assertion in section 1c enforces.
+  clutch = CLUTCH
 )
 data <- list(
   count = dc$count,
   ych = cjs$y,
   chicks = dp$SpecChickNumber,
+  # Nest success: known (1) wherever the nest fledged young, latent (NA) where
+  # it did not, since a zero could in principle be a successful nest that lost
+  # every chick. Supplying the known ones keeps the sampler off a large number
+  # of deterministically-implied binary nodes.
+  succ = ifelse(dp$SpecChickNumber > 0, 1, NA),
   log_et = log_et,
   log_ed = log_ed
 )
@@ -394,9 +483,12 @@ inits <- function() {
     bTag_phi = c(NA, 0, 0),
     lp_base = qlogis(0.5),
     bTag_p = c(NA, 0, 0),
-    mu_f = log(2),
-    sd_f = 0.3,
-    eps_f = rnorm(T + 1, 0, 0.2),
+    mu_s = qlogis(0.7),
+    sd_s = 0.3,
+    eps_s = rnorm(T + 1, 0, 0.2),
+    q_brood = 0.9,
+    succ = ifelse(dp$SpecChickNumber > 0, NA, 0),
+    succ_rep = rep(1, nProd),
     omega = 0.1,
     N_ad = c(40, 40, rep(NA, T - 2)),
     N_surv = c(NA, NA, rep(30, T - 2)),
@@ -410,7 +502,12 @@ inits <- function() {
     z_site = rnorm(nWet, 0, 1),
     sd_od = 0.5,
     od = rnorm(nCount, 0, 0.3),
-    zc = z_init(cjs$y, cjs$f)
+    zc = z_init(cjs$y, cjs$f),
+    # PPC replicate nodes are unobserved stochastic nodes; without inits the
+    # model's logProb is NA at setup. Start them at the observed data.
+    count_rep = dc$count,
+    chicks_rep = dp$SpecChickNumber,
+    ych_rep = cjs$y
   )
 }
 monitors <- c(
@@ -426,7 +523,10 @@ monitors <- c(
   "bTag_p",
   "lp_base",
   "f_rate",
-  "mu_f",
+  "s_nest",
+  "mu_s",
+  "sd_s",
+  "q_brood",
   "omega",
   "Imm",
   "R_mean",
@@ -438,7 +538,13 @@ monitors <- c(
   "lambda",
   "logB0",
   "sd_od",
-  "sd_site"
+  "sd_site",
+  "FT_count_obs",
+  "FT_count_rep",
+  "FT_prod_obs",
+  "FT_prod_rep",
+  "FT_cjs_obs",
+  "FT_cjs_rep"
 )
 
 ## ===========================================================================
@@ -542,7 +648,8 @@ summarize_ipm <- function(
       "phi_post",
       "pi_rec",
       "kappa",
-      "mu_f",
+      "mu_s",
+      "q_brood",
       "omega",
       "logB0",
       "lp_base",
