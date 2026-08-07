@@ -84,6 +84,7 @@ figures.
 | `LEYE_IPM_run_parallel.R` | Runs the IPM with one MCMC chain per core. Sources `LEYE_IPM.R` with `SKIP_RUN <- TRUE` so only the model objects are defined. |
 | `LEYE_juv90_module.R` | Standalone module estimating **local recruitment probabilities** from 1990s chick data. Supplies the recruitment priors used by the IPM. |
 | `LEYE_tLTRE.R` | Transient LTRE. Reads a cached posterior; decomposes mean λ across pathways and Var(λ) across drivers, separating demographic stochasticity. |
+| `LEYE_tag_effects_CJS.R` | Standalone CJS robustness check on the tag effects, independent of the IPM. Tests transience and time-since-tagging confounds. |
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
 | `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history. **Partly simulated — see the caveat below.** |
 | `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM. |
@@ -94,6 +95,28 @@ figures.
 |---|---|
 | `leye_ipm_report.qmd` | Quarto results report. Reads the cached posterior; does not refit. |
 | `report.css` | Styling for the report's headline result cards. |
+
+### `manuscript/`
+
+| File | Purpose |
+|---|---|
+| `PLAN.md` | Working manuscript plan — target journal, claims, blocking items, section outline, figure list. Tick items as they complete. |
+
+### Cached posteriors (all gitignored)
+
+| File | Contents |
+|---|---|
+| `LEYE_IPM_samples.rds` | **The canonical fit.** The report and tLTRE read this exact name. |
+| `LEYE_IPM_samples_vaguepriors.rds` | Companion fit with flat recruitment priors, for the sensitivity section. |
+| `LEYE_IPM_samples_omega_timevarying.rds` | Archived evidence for the rejected time-varying immigration test. |
+| `LEYE_tLTRE_results.rds`, `LEYE_tag_effects_CJS.rds` | Outputs of the corresponding scripts. |
+
+The report and tLTRE require the **exact** filename `LEYE_IPM_samples.rds` and fail
+loudly if it is missing. They previously globbed `LEYE_IPM_samples*.rds` and took the
+newest, which silently matched the companion fits above — a report can render cleanly
+from the wrong posterior that way, so the glob was removed deliberately. Point either
+at a different fit explicitly (`-P samples_path:…` for the report, the `samples_path`
+argument for the tLTRE) rather than by renaming files.
 
 ### `data/`
 
@@ -163,6 +186,23 @@ published juvenile survival estimates — they measure different things.
 There is no separate juvenile stage in `N_tot`, because volunteer counts cannot
 distinguish non-breeding age-1 birds from breeding adults.
 
+**Productivity** is modelled in two parts — whether a nest succeeded, and how many of a
+four-egg clutch fledged given success:
+
+```
+succ[m]   ~ Bernoulli(s_nest[year])
+chicks[m] ~ Binomial(clutch = 4, q_brood * succ[m])
+f_rate[t] <- s_nest[t] * clutch * q_brood
+```
+
+This replaced a single Poisson on chicks per nest, which **failed its posterior
+predictive check outright** (Bayesian p = 0.000). The observed data are 0, 2, 3 or 4
+chicks with *no nest producing exactly one* — a four-egg-clutch shorebird either loses
+the nest or fledges a near-full brood, and a Poisson cannot produce that shape at any
+mean. Note that `var/mean = 1.18`, so a routine overdispersion check would have passed
+it; the misfit was in shape, not variance. `f_rate` keeps its meaning (mean chicks per
+nest), so the recruitment equation and the tLTRE were unaffected.
+
 ### Year-axis bookkeeping
 
 The three data sources end in different years, which the code handles with pooled
@@ -175,6 +215,27 @@ The three data sources end in different years, which the code handles with poole
   so does not feed the process model.
 
 When the count series is extended, these pooled slots shrink accordingly.
+
+### Model checking
+
+**Goodness of fit.** Each data stream carries its own Freeman–Tukey posterior predictive
+check (`FT_*_obs` / `FT_*_rep`, monitored by default). Per-stream rather than pooled,
+because an IPM can fit one source well and another badly and a single statistic hides
+that. Current Bayesian p-values: counts 0.32, productivity 0.51, mark–resight 0.47.
+
+**Prior sensitivity.** The recruitment prior hyperparameters are passed as *constants*
+(`a_pi`, `b_pi`, `a_kap`, `b_kap`), so refitting under vague priors is a config change
+rather than a forked copy of the model:
+
+```r
+cv <- constants; cv$a_pi <- cv$b_pi <- cv$a_kap <- cv$b_kap <- 1
+```
+
+Result: the recruitment **level** is not prior-driven (`pi_rec` 0.107 informative vs
+0.108 vague), but the **timing** is — `kappa` keeps its central value while its interval
+widens from (0.22–0.75) to (0.02–0.97). The age-1/age-2 split rests entirely on
+the 1990s chick histories, which are partly simulated. See the report's Model checking
+section.
 
 ---
 
