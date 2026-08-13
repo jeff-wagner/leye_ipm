@@ -80,6 +80,23 @@ if (is.null(samples_path)) {
 # on the resulting plain list silently returns a 3x1 matrix instead of erroring.
 # Re-wrap defensively so the report cannot be built on garbage.
 samples <- readRDS(samples_path)
+
+# Provenance guard. A cache fitted under a different model version renders
+# perfectly well and simply shows the wrong numbers, so refuse rather than warn.
+cache_status <- ipm_cache_status(samples)
+if (cache_status == "stale") {
+  stop(
+    "'", samples_path, "' was fitted under a DIFFERENT version of the model ",
+    "than the one in scripts/LEYE_IPM.R. Refit before rendering, or the report ",
+    "will present the previous fit's results as current. (Comments and ",
+    "formatting are excluded from the fingerprint, so this reflects a real ",
+    "change to structure, constants, priors or data.)"
+  )
+}
+
+# as.mcmc.list() drops attributes, so read provenance before converting. The
+# parallel wrapper's lapply() used to strip the mcmc.list class, and as.matrix()
+# on a plain list silently returns a 3 x 1 matrix -- re-wrap defensively.
 if (!inherits(samples, "mcmc.list")) samples <- coda::as.mcmc.list(samples)
 mat <- as.matrix(samples)
 
@@ -512,7 +529,7 @@ ggplot(gains, aes(year, value, fill = source)) +
 ```
 
 ::: {.callout-warning appearance="simple"}
-**This split is genuinely uncertain.** Recruitment and immigration both add birds,
+**This split is uncertain.** Recruitment and immigration both add birds,
 and a relative-scale count index cannot fully separate them. The credible interval
 on the recruitment share spans
 `r sprintf("%.0f%%", 100 * quantile(share, .025))` to
@@ -547,9 +564,9 @@ cat(sprintf(
 ```
 
 ::: {.callout-note appearance="simple"}
-A single Poisson on chicks per nest was **rejected** by the posterior predictive
-check (see @sec-gof). The observed counts are bimodal — 0, 2, 3 or 4 chicks, with
-**no nest producing exactly one** — because a four-egg-clutch shorebird either
+This was initially modeled using a single Poisson draw for chicks per nest, but failed the posterior
+predictive check (see @sec-gof). The observed counts are bimodal — 0, 2, 3 or 4 chicks, with
+**no nest producing exactly one** — because a four-egg-clutch shorebird usually either
 loses the nest entirely or fledges a near-full brood. A Poisson cannot generate
 that shape at any mean; at the observed mean it expects roughly 16 single-chick
 nests. The two-part model reproduces the observed frequencies closely.
@@ -811,6 +828,10 @@ recruitment parameters, changing nothing else.
 sens_path <- "LEYE_IPM_samples_vaguepriors.rds"
 if (file.exists(sens_path)) {
   sv <- readRDS(sens_path)
+  # Checked on the STRUCTURAL fingerprint: this fit is meant to differ in the
+  # recruitment priors, but not in anything else.
+  sens_status <- ipm_cache_status(sv, key = "structural")
+  sens_priors <- attr(sv, "ipm_provenance")$priors
   if (!inherits(sv, "mcmc.list")) sv <- coda::as.mcmc.list(sv)
   mv <- as.matrix(sv)
   fmt <- function(m, p) {
@@ -827,6 +848,31 @@ if (file.exists(sens_path)) {
   )
   print(tbl(ps, "Informative vs vague recruitment priors") |>
     cols_align("left", columns = everything()))
+
+  if (sens_status == "stale") {
+    cat(
+      "\n\n::: {.callout-warning appearance='simple'}\n",
+      "**This comparison is out of date.** The companion fit was produced ",
+      "under a different version of the model than the one generating the rest ",
+      "of this report, so the two columns are not directly comparable. Refit it ",
+      "with the recruitment hyperparameters set to 1 and re-render.\n:::\n",
+      sep = ""
+    )
+  } else if (sens_status == "unstamped") {
+    cat(
+      "\n\n::: {.callout-note appearance='simple'}\n",
+      "The companion fit predates the provenance stamp, so it cannot be ",
+      "verified as matching the current model. Treat the comparison as ",
+      "indicative and refit when convenient.\n:::\n",
+      sep = ""
+    )
+  } else if (!is.null(sens_priors)) {
+    cat(sprintf(
+      "\n\nCompanion fitted with Beta(%g, %g) on `pi_rec` and Beta(%g, %g) on `kappa`.\n",
+      sens_priors[["a_pi"]], sens_priors[["b_pi"]],
+      sens_priors[["a_kap"]], sens_priors[["b_kap"]]
+    ))
+  }
 } else {
   cat(
     "*Companion fit `", sens_path, "` not found. To regenerate: refit with ",
@@ -858,9 +904,6 @@ this analysis, while the recruitment *rate* is on firmer ground.
 `scripts/LEYE_juv90_module.R`, whose cohort denominators are real for 1996 only.
 For 1995, 1997 and 1998 the number of broods is a random draw with an explicitly
 arbitrary mean. Recruitment probability scales inversely with those denominators.
-The committed encounter history predates the addition of a random seed and is not
-reproducible from the script — treat it as the data of record and regenerate only
-deliberately.
 
 **Recruitment and immigration are confounded**, as described above.
 
@@ -881,18 +924,50 @@ parameters rather than being discarded, and do not drive the trajectory.
 #| label: repro
 #| echo: false
 
+prov <- attr(readRDS(samples_path), "ipm_provenance")
 data.frame(
-  Item = c("Posterior file", "Chains", "Pooled draws", "Model script", "Report rendered"),
+  Item = c(
+    "Posterior file", "Chains", "Pooled draws", "Model script",
+    "Fitted", "Model fingerprint", "Report rendered"
+  ),
   Value = c(
     basename(samples_path),
     as.character(n_chains),
     format(n_draws, big.mark = ","),
     "scripts/LEYE_IPM.R",
+    if (is.null(prov)) "not recorded" else format(prov$fitted, "%Y-%m-%d %H:%M"),
+    if (is.null(prov)) "not recorded" else substr(prov$full, 1, 12),
     format(Sys.time(), "%Y-%m-%d %H:%M")
   )
 ) |>
   tbl("Run details") |>
   cols_align("left")
+```
+
+```{r}
+#| label: cache-provenance
+#| echo: false
+#| results: asis
+
+if (cache_status == "unstamped") {
+  cat(
+    "::: {.callout-note appearance='simple'}\n",
+    "**This posterior predates the provenance stamp.** Caches are now ",
+    "fingerprinted against the model that produced them, and rendering aborts ",
+    "if they disagree — but that check cannot be applied retrospectively, so ",
+    "this file's provenance is asserted rather than verified. The next refit ",
+    "stamps it and the guard becomes active.\n:::\n",
+    sep = ""
+  )
+} else {
+  cat(
+    "::: {.callout-note appearance='simple'}\n",
+    "Posterior verified against the current model: structure, constants, ",
+    "priors and data all match. Comments and formatting are excluded from the ",
+    "fingerprint, so re-documenting the model does not invalidate a fit.\n:::\n",
+    sep = ""
+  )
+}
 ```
 
 To reproduce: fit the model with `scripts/LEYE_IPM_run_parallel.R` (or
