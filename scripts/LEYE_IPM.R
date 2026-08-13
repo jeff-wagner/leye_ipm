@@ -548,6 +548,59 @@ monitors <- c(
 )
 
 ## ===========================================================================
+## SECTION 3b -- CACHE PROVENANCE GUARD
+##
+## A fitted posterior is only meaningful for the model that produced it, but a
+## stale cache fails silently: the report renders cleanly and simply shows the
+## previous fit's numbers. Every saved cache is therefore stamped with a
+## fingerprint of the model, and consumers compare before using it.
+##
+## The fingerprint is taken from the PARSED model, so it covers structure,
+## constants (including priors) and data, but NOT comments or formatting.
+## That is deliberate -- re-documenting the model should not invalidate an
+## otherwise valid fit.
+##
+## Two fingerprints are stored because one difference is legitimate: the
+## prior-sensitivity companion is SUPPOSED to differ in the recruitment
+## hyperparameters. `structural` excludes those, so the companion can be
+## checked against everything else.
+## ===========================================================================
+IPM_PRIOR_KEYS <- c("a_pi", "b_pi", "a_kap", "b_kap")
+
+ipm_provenance <- function(code = ipmCode, consts = constants, dat = data) {
+  fp <- function(drop) {
+    cs <- consts[setdiff(names(consts), drop)]
+    digest::digest(list(
+      model = paste(deparse(code, width.cutoff = 500), collapse = "\n"),
+      constants = cs[order(names(cs))],
+      data = dat[order(names(dat))]
+    ))
+  }
+  list(
+    full = fp(character(0)),
+    structural = fp(IPM_PRIOR_KEYS),
+    priors = unlist(consts[IPM_PRIOR_KEYS]),
+    fitted = Sys.time()
+  )
+}
+
+# Attach provenance immediately before saving.
+stamp_ipm_cache <- function(samples) {
+  attr(samples, "ipm_provenance") <- ipm_provenance()
+  samples
+}
+
+# "ok" | "stale" | "unstamped". Use key = "structural" for the prior-
+# sensitivity companion, whose recruitment priors differ by design.
+ipm_cache_status <- function(samples, key = "full") {
+  p <- attr(samples, "ipm_provenance")
+  if (is.null(p)) {
+    return("unstamped")
+  }
+  if (identical(p[[key]], ipm_provenance()[[key]])) "ok" else "stale"
+}
+
+## ===========================================================================
 # SECTION 4 -- BUILD / RUN -----------------------------------------------
 ## ===========================================================================
 # When sourced by the parallel wrapper, SKIP_RUN is set TRUE so that only the
@@ -1087,6 +1140,13 @@ if (!SKIP_RUN) {
     samplesAsCodaMCMC = TRUE,
     setSeed = 1:3
   )
+
+  # Cache under the canonical name the report and tLTRE both read. Without this
+  # the serial path leaves the previous fit in place, and a subsequent
+  # `quarto render` would silently rebuild the report from the OLD posterior --
+  # it renders cleanly, so there is nothing to notice.
+  saveRDS(stamp_ipm_cache(samples), "LEYE_IPM_samples.rds")
+  cat("\nWrote: LEYE_IPM_samples.rds (stamped with model fingerprint)\n")
 
   ## ===========================================================================
   ## SECTION 5 -- SUMMARY

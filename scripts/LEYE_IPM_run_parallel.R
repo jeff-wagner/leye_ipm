@@ -163,7 +163,7 @@ samples <- as.mcmc.list(chain_list) |>
 
 # Stable filename: the Quarto report picks the most recent LEYE_IPM_samples*.rds
 # by default, and a fixed name keeps re-runs from accumulating dated caches.
-saveRDS(samples, "LEYE_IPM_samples.rds")
+saveRDS(stamp_ipm_cache(samples), "LEYE_IPM_samples.rds")
 
 ## ---------------------------------------------------------------------------
 ## 5. Summary. `summarize_ipm` (defined by the source() call above) prints a
