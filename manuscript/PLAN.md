@@ -31,8 +31,16 @@ Prairie Pothole migration paper, so the species and audience are established the
 1. Vital rates for a breeding LEYE population from an IPM combining counts,
    mark–resight, and productivity — adult apparent survival ≈ 0.63–0.70.
 2. **Recruitment is delayed and low.** Locally-produced young recruit at ages 1 and 2
-   in roughly equal proportion, not entirely at age 1 as commonly assumed. Total
-   probability of recruiting locally ≈ 10%.
+   in roughly equal proportion, not entirely at age 1 as commonly assumed. Now supported
+   by **two independent eras** — 139 chicks banded 1995–98 and 133 banded 2018–25 —
+   with near-identical age-at-first-return patterns thirty years apart. Modern total
+   probability of recruiting locally ≈ 5%.
+2b. **Immigration, not local production, appears to sustain the population.** With the
+   modern recruitment prior in place, local recruits account for only ~31% of annual
+   gains (down from 56% under the 1990s-derived prior), and immigration contributes
+   ~17% of λ against recruitment's ~7%. This is the headline the tLTRE now delivers,
+   and it has direct conservation implications: a local population propped up by
+   immigration is vulnerable to declines elsewhere in the flyway.
 3. **GPS tags substantially reduce apparent survival** — a ~45% relative reduction,
    several times the published geolocator benchmark.
 4. **Demographic stochasticity dominates variation in growth rate** in a population
@@ -89,10 +97,18 @@ dispersal is not separable from mortality here.
 
 ## 3. Phase 0 — data resolution (blocking, do first)
 
-The 1990s chick cohort denominators for 1995/1997/1998 are currently *simulated*
-(`rpois(4, 0.85 * num_broods96)`, an explicitly arbitrary mean). Recruitment
-probability scales inversely with them, and they propagate into the IPM as priors.
-This cannot go to review as-is.
+**Downgraded but not resolved.** The IPM's recruitment prior now comes from the modern
+era (133 chicks, 2018–2025), so the simulated 1990s cohorts no longer set it directly.
+They still enter two ways: they size the 1990s half of the era comparison, and the 178
+contemporaneous 1990s adults pin the shared detection that makes the modern estimate
+identifiable. Five modern resights cannot determine detection alone.
+
+So this is no longer blocking for the *headline* recruitment number, but it is still
+blocking for any claim about **change between eras** — which is now a candidate result
+(P(decline) = 0.91, ratio 0.10–1.61).
+
+The 1990s cohort denominators for 1995/1997/1998 remain *simulated*
+(`rpois(4, 0.85 * num_broods96)`, an explicitly arbitrary mean).
 
 - [ ] Recover the real 1995/1997/1998 chick banding totals from the original records.
 - [ ] Rebuild `data/LEYE_juv_EH_1995_2000.csv` from real denominators.

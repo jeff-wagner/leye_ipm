@@ -82,7 +82,9 @@ figures.
 |---|---|
 | `LEYE_IPM.R` | **The main model.** Data prep, NIMBLE model, fit, summaries and figures. |
 | `LEYE_IPM_run_parallel.R` | Runs the IPM with one MCMC chain per core. Sources `LEYE_IPM.R` with `SKIP_RUN <- TRUE` so only the model objects are defined. |
-| `LEYE_juv90_module.R` | Standalone module estimating **local recruitment probabilities** from 1990s chick data. Supplies the recruitment priors used by the IPM. |
+| `LEYE_recruitment_two_era.R` | **Supplies the IPM's recruitment priors.** Fits 1990s and modern chick cohorts jointly with shared detection, and estimates the change between eras. |
+| `LEYE_juv90_module.R` | The earlier 1990s-only recruitment module. Superseded for prior generation, but retained: it holds the validated `dChick`/`dAdult` likelihoods that the two-era model sources. |
+| `create_chick_eh_2018_2026.R` | Cleans the modern chick resights into an analysis-ready encounter history. |
 | `LEYE_tLTRE.R` | Transient LTRE. Reads a cached posterior; decomposes mean λ across pathways and Var(λ) across drivers, separating demographic stochasticity. |
 | `LEYE_tag_effects_CJS.R` | Standalone CJS robustness check on the tag effects, independent of the IPM. Tests transience and time-since-tagging confounds. |
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
@@ -127,6 +129,7 @@ argument for the tLTRE) rather than by renaming files.
 | `LEYE_95_26_EH.csv` | Adult encounter history, 391 birds × 32 annual occasions (1995–2026). |
 | `LEYE_95_26_covs.csv` | Individual covariates, **row-aligned with the EH**. |
 | `LEYE_juv_EH_1995_2000.csv` | 1990s chick encounter history, 139 birds × 6 occasions. |
+| `LEYE_chick_EH_2018_2026.csv` | Modern chick encounter history, 133 birds × 9 occasions, built by `create_chick_eh_2018_2026.R`. |
 
 `LEYE_95_26_EH.csv` and `LEYE_95_26_covs.csv` must stay in **lockstep** — same band
 numbers, same order. `LEYE_IPM.R` asserts this and stops if it fails. Regenerate both
@@ -221,7 +224,7 @@ When the count series is extended, these pooled slots shrink accordingly.
 **Goodness of fit.** Each data stream carries its own Freeman–Tukey posterior predictive
 check (`FT_*_obs` / `FT_*_rep`, monitored by default). Per-stream rather than pooled,
 because an IPM can fit one source well and another badly and a single statistic hides
-that. Current Bayesian p-values: counts 0.32, productivity 0.51, mark–resight 0.47.
+that. Current Bayesian p-values: counts 0.31, productivity 0.50, mark–resight 0.48.
 
 **Prior sensitivity.** The recruitment prior hyperparameters are passed as *constants*
 (`a_pi`, `b_pi`, `a_kap`, `b_kap`), so refitting under vague priors is a config change
@@ -231,11 +234,28 @@ rather than a forked copy of the model:
 cv <- constants; cv$a_pi <- cv$b_pi <- cv$a_kap <- cv$b_kap <- 1
 ```
 
-Result: the recruitment **level** is not prior-driven (`pi_rec` 0.107 informative vs
-0.108 vague), but the **timing** is — `kappa` keeps its central value while its interval
-widens from (0.22–0.75) to (0.02–0.97). The age-1/age-2 split rests entirely on
-the 1990s chick histories, which are partly simulated. See the report's Model checking
-section.
+Result, and **this changed when the modern recruitment prior replaced the 1990s one**:
+
+| | Informative | Vague |
+|---|---|---|
+| `pi_rec` | 0.050 (0.009–0.120) | **0.105** (0.004–0.258) |
+| `kappa` | 0.481 (0.252–0.718) | 0.491 (0.024–0.975) |
+
+**The recruitment level is now prior-sensitive.** Under the 1990s-derived prior the
+informative and vague fits agreed almost exactly (0.107 vs 0.108), so the level was
+safely data-driven. Under the modern prior they differ two-fold, because the count data
+and the modern chick resights **disagree**: the counts want recruitment near 0.105, the
+chick data says 0.049, and the tighter modern prior wins.
+
+That disagreement is a finding, not a defect, and it should be reported rather than
+smoothed over. Three readings are possible and the analysis cannot yet separate them:
+the counts cannot distinguish recruitment from immigration, so "recruitment" inferred
+from counts absorbs any unmodelled inflow; the assumption that modern chick detection
+matches the 1990s may be too generous, which would bias `psi` down; or local recruitment
+genuinely is low and immigration genuinely is high.
+
+The **timing** remains prior-driven — `kappa`'s interval still widens from (0.25–0.72)
+to (0.02–0.97) with its centre unmoved.
 
 ---
 
@@ -248,13 +268,19 @@ not affect λ. **Read trajectory shape and λ, never absolute abundance.**
 
 **Recruitment and immigration are confounded.** Both `psi` and `omega` add birds, and
 relative-scale counts cannot fully separate them. This is why recruitment carries an
-informative prior from the 1990s module: without it, the split is essentially
+informative prior from the two-era module: without it, the split is essentially
 unidentified. Even with it, the share of annual gains attributable to local recruitment
 has a wide credible interval. Report it as such.
 
+Because the two trade off, sharpening one moves the other. Replacing the 1990s-derived
+recruitment prior with the modern-era estimate halved recruitment and raised immigration
+to compensate — the share of annual gains from local recruitment fell from **56% to 31%**
+while λ barely moved (0.966 → 0.963). The trajectory is robust; the *attribution* is not,
+and it depends on which era the recruitment prior comes from.
+
 **The counts inform recruitment level but not timing.** In fitting, `pi_rec` moves
 appreciably from its prior while `kappa` (the age-1 versus age-2 split) does not. The
-recruitment *timing* is therefore driven entirely by the 1990s chick histories, and any
+recruitment *timing* is therefore driven entirely by the chick histories, and any
 write-up should say so.
 
 ---
@@ -263,8 +289,15 @@ write-up should say so.
 
 ### The 1990s chick cohorts are partly simulated
 
-This is the most important limitation to understand before using the recruitment
-estimates.
+Still the most important limitation on the recruitment estimates, though its route into
+the model changed once the modern chick data arrived.
+
+The IPM's recruitment prior now comes from the **modern** era (133 chicks banded
+2018–2025), so the simulated 1990s cohorts no longer set it directly. They still matter
+in two ways: they size the 1990s half of the era comparison, and — more importantly —
+the 178 contemporaneous 1990s adults are what pin the shared detection probability that
+makes the modern estimate identifiable at all. Five modern resights cannot determine
+detection on their own. So the simulation still propagates, less directly than before.
 
 `create_juv_eh_1995_2000.R` reconstructs the 1990s chick cohorts, but only **1996** rests
 on real brood records. For 1995, 1997 and 1998 the number of broods is a random Poisson
