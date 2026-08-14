@@ -11,8 +11,32 @@ library(tidyverse)
 
 # Encounter History ------------------------------------------------------
 
+# Band-number corrections, applied before anything else so every downstream
+# join uses the corrected values.
+#
+#   1422220945 -> 142220945  A doubled "2". Every other band in this series is
+#                            a 9-digit 14222xxxx; the 10-digit form is a typo.
+#                            The same error on 1422220944 (a chick) is fixed in
+#                            create_chick_eh_2019_2026.R.
+#
+#   129232054                NOT a new 2025 adult. This bird was banded as a
+#                            CHICK in 2023 and recaptured as a breeding adult in
+#                            2025 -- a confirmed local recruit. Adding it here
+#                            would count it twice and record its first capture
+#                            four years late, which biases adult survival (a
+#                            recruit re-entering looks like a newly caught
+#                            adult). It belongs to the chick encounter history.
+BAND_FIX <- c(`1422220945` = 142220945)
+RECRUIT_FROM_CHICK <- 129232054
+
 newBands25 <- read_csv("data/New Bands 2025.csv") |>
-  filter(Age != "Chick")
+  filter(Age != "Chick") |>
+  mutate(
+    `Band number` = dplyr::coalesce(
+      BAND_FIX[as.character(`Band number`)], `Band number`
+    )
+  ) |>
+  filter(!(`Band number` %in% RECRUIT_FROM_CHICK))
 resight26 <- read_csv("data/Resight 2026.csv")
 eh_95_25 <- read_csv("data/LEYE_95_25_EH.csv")
 banded_18_25 <- readxl::read_excel(
