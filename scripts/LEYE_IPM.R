@@ -448,12 +448,27 @@ constants <- list(
   tag = cjs$tag,
   nProd = nProd,
   pyr = prod_ipm_idx[dp$py_idx],
-  # Recruitment prior hyperparameters. Defaults = Beta fits to the 1990s module
-  # posterior. Override with 1,1,1,1 for the vague-prior sensitivity run.
-  a_pi = 2.268,
-  b_pi = 13.610,
-  a_kap = 6.054,
-  b_kap = 6.309,
+  # Recruitment prior hyperparameters, from the MODERN era of the two-era
+  # recruitment model (scripts/LEYE_recruitment_two_era.R). Override with
+  # 1,1,1,1 for the vague-prior sensitivity run.
+  #
+  # These replaced Beta fits to the 1990s-only module -- dbeta(2.268, 13.610)
+  # and dbeta(6.054, 6.309), prior mean recruitment 0.143. Using 1990s
+  # recruitment in a model of the 2014-2025 population was always a
+  # substitution made for want of anything better; there are now 133 chicks
+  # banded 2018-2025 with resights, so the prior comes from the era the IPM
+  # actually describes. Prior mean recruitment falls 0.143 -> 0.049.
+  #
+  # The modern chick data is passed as a prior rather than a fourth likelihood
+  # because its detection probability is not identifiable on its own (5
+  # resights), and is pinned only by the 178 contemporaneous 1990s adults in
+  # that module. Folding it in directly would mean extending the IPM back to
+  # 1995 across a nine-year gap. The two data sets are disjoint from the IPM's,
+  # so nothing is used twice.
+  a_pi = 2.4200,
+  b_pi = 47.2852,
+  a_kap = 7.7764,
+  b_kap = 8.2649,
   # Modal clutch size. LEYE lay 4 eggs; no nest in these data exceeded 4, which
   # the assertion in section 1c enforces.
   clutch = CLUTCH
