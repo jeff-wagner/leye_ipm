@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 824" width="1040" height="824"
+     font-family="Helvetica, Arial, sans-serif">
+
+  <defs>
+    <marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0072B2"/>
+    </marker>
+    <marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#009E73"/>
+    </marker>
+    <marker id="ah-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#B8628F"/>
+    </marker>
+    <marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D55E00"/>
+    </marker>
+    <marker id="ah-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a8a8a"/>
+    </marker>
+  </defs>
+
+  <rect width="1040" height="824" fill="#ffffff"/>
+
+  <!-- ============ zones ============ -->
+  <rect x="40" y="52" width="960" height="368" rx="6" fill="#fbfcfd" stroke="#dde3e8" stroke-width="1"/>
+  <text x="58" y="78" font-size="14" fill="#5a6570" font-style="italic">At the breeding site — present and detectable</text>
+
+  <rect x="40" y="440" width="960" height="184" rx="6" fill="#eceff1" stroke="#d3d9de" stroke-width="1"/>
+  <text x="980" y="466" text-anchor="end" font-size="14" fill="#5a6570" font-style="italic">Away from the breeding grounds — not observed by any data source</text>
+
+  <!-- ============ stage boxes ============ -->
+  <rect x="560" y="150" width="300" height="112" rx="8" fill="#dceef7" stroke="#0072B2" stroke-width="2"/>
+  <text x="710" y="189" text-anchor="middle" font-size="18" font-weight="600" fill="#005580">Breeding adults</text>
+  <text x="703" y="214" text-anchor="middle" font-size="16" fill="#3d4a57">N</text>
+  <text x="714" y="219" font-size="11.5" fill="#3d4a57">t</text>
+  <text x="710" y="241" text-anchor="middle" font-size="13" fill="#5a6570">the only class the counts observe</text>
+
+  <rect x="120" y="272" width="240" height="92" rx="8" fill="#d9f2ea" stroke="#009E73" stroke-width="2"/>
+  <text x="240" y="306" text-anchor="middle" font-size="17" font-weight="600" fill="#00674C">Fledged young</text>
+  <text x="240" y="329" text-anchor="middle" font-size="13" fill="#5a6570">from a 4-egg clutch</text>
+  <text x="240" y="348" text-anchor="middle" font-size="13" fill="#5a6570">(hatch year)</text>
+
+  <rect x="120" y="482" width="240" height="92" rx="8" fill="#e0e4e7" stroke="#8a8a8a" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="240" y="516" text-anchor="middle" font-size="17" font-weight="600" fill="#4a5560">Age 1, absent</text>
+  <text x="240" y="539" text-anchor="middle" font-size="13" fill="#5a6570">oversummering away</text>
+  <text x="240" y="558" text-anchor="middle" font-size="13" fill="#5a6570">from the breeding site</text>
+
+  <!-- ============ transitions ============ -->
+
+  <!-- adult survival: self loop -->
+  <path d="M 860 178 C 950 158, 950 252, 860 234" fill="none" stroke="#0072B2" stroke-width="2.2" marker-end="url(#ah-blue)"/>
+  <text x="958" y="199" font-size="17" font-weight="600" fill="#0072B2">φ</text>
+  <text x="971" y="205" font-size="12.5" fill="#0072B2">ad</text>
+  <text x="958" y="221" font-size="13" fill="#5a6570">survival</text>
+
+  <!-- immigration -->
+  <path d="M 710 100 L 710 148" fill="none" stroke="#D55E00" stroke-width="2.2" marker-end="url(#ah-red)"/>
+  <text x="710" y="90" text-anchor="middle" font-size="13" fill="#5a6570">from other populations</text>
+  <text x="728" y="132" font-size="17" font-weight="600" fill="#D55E00">ω</text>
+
+  <!-- fecundity: adults -> fledged young -->
+  <path d="M 596 264 C 480 302, 420 302, 364 304" fill="none" stroke="#009E73" stroke-width="2.2" marker-end="url(#ah-green)"/>
+  <text x="448" y="294" font-size="16" font-weight="600" fill="#009E73">f</text>
+  <text x="456" y="299" font-size="11.5" fill="#009E73">t</text>
+  <text x="464" y="294" font-size="16" font-weight="600" fill="#009E73">/ 2</text>
+  <text x="448" y="316" font-size="12.5" fill="#5a6570">= s</text>
+  <text x="468" y="320" font-size="10.5" fill="#5a6570">nest</text>
+  <text x="490" y="316" font-size="12.5" fill="#5a6570">× 4 × q</text>
+  <text x="537" y="320" font-size="10.5" fill="#5a6570">brood</text>
+
+  <!-- psi1: fledged young -> breeding adults, one year later -->
+  <path d="M 344 270 C 430 196, 500 190, 556 198" fill="none" stroke="#B8628F" stroke-width="2.6" stroke-dasharray="9 4" marker-end="url(#ah-purple)"/>
+  <text x="436" y="178" text-anchor="middle" font-size="17" font-weight="600" fill="#B8628F">ψ</text>
+  <text x="449" y="184" font-size="12.5" fill="#B8628F">1</text>
+  <text x="436" y="158" text-anchor="middle" font-size="12.5" fill="#5a6570">recruits at age 1</text>
+
+  <!-- leaves the breeding grounds -->
+  <path d="M 240 368 L 240 478" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah-grey)"/>
+  <text x="254" y="426" font-size="13" fill="#5a6570">departs</text>
+
+  <!-- psi2: age 1 -> breeding adults, two years after fledging -->
+  <path d="M 364 518 C 560 514, 650 420, 686 268" fill="none" stroke="#B8628F" stroke-width="2.6" stroke-dasharray="9 4" marker-end="url(#ah-purple)"/>
+  <text x="450" y="552" font-size="17" font-weight="600" fill="#B8628F">ψ</text>
+  <text x="463" y="558" font-size="12.5" fill="#B8628F">2</text>
+  <text x="480" y="552" font-size="12.5" fill="#5a6570">recruits at age 2</text>
+
+  <!-- ============ data-source legend ============ -->
+  <line x1="40" y1="660" x2="1000" y2="660" stroke="#d3d9de" stroke-width="1"/>
+  <text x="40" y="688" font-size="15" font-weight="600" fill="#2d3742">Parameters and the data that inform them</text>
+
+  <line x1="42" y1="713" x2="60" y2="713" stroke="#0072B2" stroke-width="3.2"/>
+  <text x="68" y="718" font-size="14" font-weight="600" fill="#2d3742">Mark–resight (CJS)</text>
+  <text x="256" y="718" font-size="13" fill="#5a6570">213 adults, 2010–2026</text>
+  <text x="505" y="718" font-size="13" fill="#2d3742">φ</text>
+  <text x="514" y="722" font-size="10.5" fill="#2d3742">ad</text>
+  <text x="528" y="718" font-size="13" fill="#2d3742">, resighting p, sex and tag-type effects</text>
+
+  <line x1="42" y1="741" x2="60" y2="741" stroke="#009E73" stroke-width="3.2"/>
+  <text x="68" y="746" font-size="14" font-weight="600" fill="#2d3742">Nest monitoring</text>
+  <text x="256" y="746" font-size="13" fill="#5a6570">77 nests, 2018–2026</text>
+  <text x="505" y="746" font-size="13" fill="#2d3742">nest success s</text>
+  <text x="598" y="750" font-size="10.5" fill="#2d3742">nest</text>
+  <text x="620" y="746" font-size="13" fill="#2d3742">, per-egg fledging q</text>
+  <text x="751" y="750" font-size="10.5" fill="#2d3742">brood</text>
+
+  <line x1="42" y1="769" x2="60" y2="769" stroke="#D55E00" stroke-width="3.2"/>
+  <text x="68" y="774" font-size="14" font-weight="600" fill="#2d3742">Volunteer wetland counts</text>
+  <text x="256" y="774" font-size="13" fill="#5a6570">855 records, 32 wetlands, 2014–2025</text>
+  <text x="505" y="774" font-size="13" fill="#2d3742">relative abundance N</text>
+  <text x="636" y="778" font-size="10.5" fill="#2d3742">t</text>
+  <text x="643" y="774" font-size="13" fill="#2d3742">, immigration ω</text>
+
+  <line x1="42" y1="797" x2="60" y2="797" stroke="#B8628F" stroke-width="3.2" stroke-dasharray="7 3.5"/>
+  <text x="68" y="802" font-size="14" font-weight="600" fill="#2d3742">Chick mark–resight</text>
+  <text x="256" y="802" font-size="13" fill="#5a6570">133 chicks 2018–25, 139 in 1995–98</text>
+  <text x="505" y="802" font-size="13" fill="#2d3742">recruitment ψ</text>
+  <text x="597" y="806" font-size="10.5" fill="#2d3742">1</text>
+  <text x="605" y="802" font-size="13" fill="#2d3742">, ψ</text>
+  <text x="623" y="806" font-size="10.5" fill="#2d3742">2</text>
+
+</svg>
