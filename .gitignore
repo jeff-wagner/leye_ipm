@@ -46,11 +46,17 @@ desktop.ini
 ._*
 
 # Manuscript materials ----------------------------------------------------
-# Ignore the working directory (rendered HTML, Quarto's PLAN_files/ asset
-# bundle, Word drafts) but KEEP manuscript/figures/ and PLAN.md -- the figures
-# are generated deliverables, and PLAN.md carries the model specification and
-# the record of decisions behind the analysis. PLAN.html is the render of
-# PLAN.md and stays ignored, along with its PLAN_files/ asset bundle.
+# Ignore the working directory (Word drafts, scratch scripts) but KEEP
+# manuscript/figures/, PLAN.md and PLAN.html. The figures are generated
+# deliverables; PLAN.md carries the model specification and the record of
+# decisions behind the analysis; PLAN.html is its Quarto render, tracked so
+# collaborators can read it with a working sidebar without installing Quarto.
+#
+# PLAN.html is self-contained (embed-resources: true, ~1.9 MB) so there is no
+# PLAN_files/ asset bundle to track -- Quarto deletes that directory on render.
+# The flip side is that every render writes a whole new 1.9 MB blob into
+# history, so re-render when the plan actually changes, not out of habit:
+#   quarto render manuscript/PLAN.md --to html
 #
 # Note the trailing /* rather than a plain `manuscript/`. Git will not descend
 # into an excluded directory, so `manuscript/` followed by
@@ -65,6 +71,7 @@ desktop.ini
 manuscript/*
 !manuscript/figures/
 !manuscript/PLAN.md
+!manuscript/PLAN.html
 
 # ---- Misc ---------------------------------------------------------------
 *.tmp

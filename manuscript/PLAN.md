@@ -1,4 +1,22 @@
-# Manuscript plan
+---
+title: "Manuscript plan"
+subtitle: "Integrated population model, Lesser Yellowlegs, Anchorage"
+# gfm_auto_identifiers makes pandoc build heading anchors GitHub's way, so a
+# section link copied from GitHub also works in the rendered HTML and vice
+# versa. Without it pandoc strips leading digits from headings
+# ("1. The argument" -> #the-argument) and the numbered sections get two
+# different anchors depending on where the file is being read.
+from: markdown+gfm_auto_identifiers
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "Sections"
+    toc-expand: true
+    embed-resources: true
+    theme: cosmo
+---
 
 Working document. Tick items as they are completed; amend freely.
 
@@ -264,58 +282,115 @@ Transcribed from `scripts/LEYE_IPM.R` on 2026-08-14. Indices: *t* = year (1…T,
 *i* = count record, *j* = marked individual, *m* = nest, *w* = survey week, *k* = wetland.
 **If the model changes, this block must be re-transcribed — it is documentation, not code.**
 
-```
-──── PROCESS ─────────────────────────────────────────────────────────────────
-  N₁, N₂        ~  Normal(0, 50) truncated at 0          two free initial years,
-                                                          because recruitment lags 2 yr
-  for t = 3…T:
-    Rₜ          ~  Poisson( N_{t-1}·(f_{t-1}/2)·ψ₁  +  N_{t-2}·(f_{t-2}/2)·ψ₂ )
-    Sₜ          ~  Poisson( N_{t-1}·φ_{t-1} )
-    Iₜ          ~  Poisson( N_{t-1}·ω )
-    Nₜ          =  Sₜ + Rₜ + Iₜ                          recruits enter the breeding
-                                                          class directly; no juvenile stage
-    λₜ          =  N_{t+1} / Nₜ
+**Process model.** Two free initial years, because recruitment lags two years and
+there is nothing to build $N_1$ and $N_2$ from:
 
-──── VITAL RATES ─────────────────────────────────────────────────────────────
-  logit φₜ      =  μ_φ + ε_φ,ₜ            ε_φ,ₜ ~ Normal(0, σ_φ)   adult survival
-  logit sₜ      =  μ_s + ε_s,ₜ            ε_s,ₜ ~ Normal(0, σ_s)   nest success
-  fₜ            =  sₜ · C · q                         C = 4 (clutch), q = per-egg fledging
-  ψ₁            =  π · κ                              recruit at age 1
-  ψ₂            =  π · (1 − κ)                        recruit at age 2
-  ω             =  immigration rate (constant — see the note at its prior)
+$$
+\begin{aligned}
+N_1,\, N_2 &\sim \mathrm{Normal}(0,\ 50)\ \text{truncated at } 0 \\[2pt]
+R_t &\sim \mathrm{Poisson}\!\left(N_{t-1}\,\frac{f_{t-1}}{2}\,\psi_1
+        \;+\; N_{t-2}\,\frac{f_{t-2}}{2}\,\psi_2\right) \\[2pt]
+S_t &\sim \mathrm{Poisson}\!\left(N_{t-1}\,\phi_{t-1}\right) \\[2pt]
+I_t &\sim \mathrm{Poisson}\!\left(N_{t-1}\,\omega\right) \\[2pt]
+N_t &= S_t + R_t + I_t \\[2pt]
+\lambda_t &= N_{t+1} \,/\, N_t
+\end{aligned}
+\qquad t = 3,\dots,T
+$$
 
-──── OBSERVATION 1 · COUNTS  (relative index) ────────────────────────────────
-  log μᵢ        =  β₀ + log N_{t(i)} + week_{w(i)} + b_e·E1ᵢ + b_d·E2ᵢ
-                     + u_{k(i)} + δᵢ
-  countᵢ        ~  Poisson(μᵢ)
-      u_k ~ Normal(0, σ_site)      wetland random effect
-      δᵢ  ~ Normal(0, σ_od)        overdispersion
-      β₀ is non-identifiable against the level of N — read shape, not magnitude
+Recruits enter the breeding class directly; there is no juvenile stage.
 
-──── OBSERVATION 2 · MARK–RESIGHT  (CJS, latent alive-state z) ───────────────
-  logit φ_{j,t} =  ℓφ[ lookup(t) ] + βˢᵉˣ_{sex(j)} + βᵗᵃᵍ_{tag(j)}
-  logit p_j     =  p₀ + βᵖ_{tag(j)}
-  z_{j,t}       ~  Bernoulli( φ_{j,t-1} · z_{j,t-1} ),   z_{j,f(j)} = 1
-  y_{j,t}       ~  Bernoulli( p_j · z_{j,t} )
-      ℓφ[1…T-1] = logit φₜ ;  ℓφ[T] = logit φ_pre ;  ℓφ[T+1] = logit φ_post
-      the two overflow slots absorb intervals outside the count series
+**Vital rates.**
 
-──── OBSERVATION 3 · PRODUCTIVITY  (two-part) ────────────────────────────────
-  succ_m        ~  Bernoulli( s_{t(m)} )               did the nest fledge anything?
-  chicks_m      ~  Binomial( C, q · succ_m )           how many of the clutch
-      a single Poisson was REJECTED here: p = 0.000, because the data are
-      bimodal (0, 2, 3, 4 chicks; none with exactly 1)
+$$
+\begin{aligned}
+\operatorname{logit} \phi_t &= \mu_\phi + \varepsilon_{\phi,t},
+  &\varepsilon_{\phi,t} &\sim \mathrm{Normal}(0,\ \sigma_\phi)
+  &&\text{adult survival} \\[2pt]
+\operatorname{logit} s_t &= \mu_s + \varepsilon_{s,t},
+  &\varepsilon_{s,t} &\sim \mathrm{Normal}(0,\ \sigma_s)
+  &&\text{nest success} \\[2pt]
+f_t &= s_t \cdot C \cdot q &&&&\text{fledglings per breeding pair} \\[2pt]
+\psi_1 &= \pi\,\kappa &&&&\text{recruit at age 1} \\[2pt]
+\psi_2 &= \pi\,(1-\kappa) &&&&\text{recruit at age 2}
+\end{aligned}
+$$
 
-──── PRIORS ──────────────────────────────────────────────────────────────────
-  μ_φ, μ_s, p₀, βˢᵉˣ, βᵗᵃᵍ, βᵖ  ~ Normal(0, 1.5)
-  β₀, b_e, b_d, week_w          ~ Normal(0, 5)
-  σ_φ ~ Exp(2)   σ_s, σ_site, σ_od ~ Exp(1)   ω ~ Exp(1)
-  φ_pre, φ_post, q              ~ Uniform(0, 1)
-  π   ~ Beta(2.4200, 47.2852)   ← modern-era recruitment, external module
-  κ   ~ Beta(7.7764,  8.2649)   ← age-1 fraction, external module
-      these two are the ONLY informative priors, and both are passed as
-      constants so the vague-prior sensitivity run is a config change
-```
+with $C = 4$ (clutch size) and $q$ the per-egg fledging probability. The
+immigration rate $\omega$ is constant — see the note at its prior.
+
+**Observation 1 · counts** (relative index):
+
+$$
+\begin{aligned}
+\log \mu_i &= \beta_0 + \log N_{t(i)} + \text{week}_{w(i)}
+   + b_e E^{(1)}_i + b_d E^{(2)}_i + u_{k(i)} + \delta_i \\[2pt]
+\text{count}_i &\sim \mathrm{Poisson}(\mu_i) \\[2pt]
+u_k &\sim \mathrm{Normal}(0,\ \sigma_{\text{site}})
+   &&\text{wetland random effect} \\[2pt]
+\delta_i &\sim \mathrm{Normal}(0,\ \sigma_{\text{od}})
+   &&\text{overdispersion}
+\end{aligned}
+$$
+
+$\beta_0$ is non-identifiable against the level of $N$ — read shape, not magnitude.
+
+**Observation 2 · mark–resight** (CJS with latent alive-state $z$):
+
+$$
+\begin{aligned}
+\operatorname{logit} \phi_{j,t} &= \ell_\phi\!\left[\mathrm{lookup}(t)\right]
+   + \beta^{\text{sex}}_{\mathrm{sex}(j)} + \beta^{\text{tag}}_{\mathrm{tag}(j)} \\[2pt]
+\operatorname{logit} p_j &= p_0 + \beta^{p}_{\mathrm{tag}(j)} \\[2pt]
+z_{j,t} &\sim \mathrm{Bernoulli}\!\left(\phi_{j,t-1}\, z_{j,t-1}\right),
+   \qquad z_{j,\,f(j)} = 1 \\[2pt]
+y_{j,t} &\sim \mathrm{Bernoulli}\!\left(p_j\, z_{j,t}\right)
+\end{aligned}
+$$
+
+$$
+\ell_\phi[1{:}T-1] = \operatorname{logit}\phi_t, \qquad
+\ell_\phi[T] = \operatorname{logit}\phi_{\text{pre}}, \qquad
+\ell_\phi[T+1] = \operatorname{logit}\phi_{\text{post}}
+$$
+
+The two overflow slots absorb intervals falling outside the count series.
+
+**Observation 3 · productivity** (two-part):
+
+$$
+\begin{aligned}
+\text{succ}_m &\sim \mathrm{Bernoulli}\!\left(s_{t(m)}\right)
+   &&\text{did the nest fledge anything?} \\[2pt]
+\text{chicks}_m &\sim \mathrm{Binomial}\!\left(C,\ q \cdot \text{succ}_m\right)
+   &&\text{how many of the clutch}
+\end{aligned}
+$$
+
+A single Poisson was **rejected** here ($p = 0.000$): the data are bimodal
+(0, 2, 3, 4 chicks, none with exactly 1).
+
+**Priors.**
+
+$$
+\begin{aligned}
+\mu_\phi,\ \mu_s,\ p_0,\ \beta^{\text{sex}},\ \beta^{\text{tag}},\ \beta^{p}
+   &\sim \mathrm{Normal}(0,\ 1.5) \\[2pt]
+\beta_0,\ b_e,\ b_d,\ \text{week}_w &\sim \mathrm{Normal}(0,\ 5) \\[2pt]
+\sigma_\phi &\sim \mathrm{Exponential}(2) \\[2pt]
+\sigma_s,\ \sigma_{\text{site}},\ \sigma_{\text{od}},\ \omega
+   &\sim \mathrm{Exponential}(1) \\[2pt]
+\phi_{\text{pre}},\ \phi_{\text{post}},\ q &\sim \mathrm{Uniform}(0,\ 1) \\[2pt]
+\pi &\sim \mathrm{Beta}(2.4200,\ 47.2852)
+   &&\text{modern-era recruitment, external module} \\[2pt]
+\kappa &\sim \mathrm{Beta}(7.7764,\ 8.2649)
+   &&\text{age-1 fraction, external module}
+\end{aligned}
+$$
+
+$\pi$ and $\kappa$ are the **only** informative priors, and both are passed as
+constants so the vague-prior sensitivity run is a configuration change rather
+than a model edit.
 
 **Reading the structure.** Three things are unusual and each should be defended
 explicitly in Methods rather than left for a reviewer to find:

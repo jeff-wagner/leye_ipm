@@ -34,7 +34,8 @@
 #   annual survival rates. They replace the old phi_juv = rho * phi_ad, whose
 #   rho was weakly identified because recruitment and immigration (omega) both
 #   add birds and the relative-scale counts cannot separate them. Priors come
-#   from scripts/LEYE_juv90_module.R and are informative but updatable.
+#   from scripts/LEYE_recruitment_two_era.R (which supersedes the 1990s-only
+#   LEYE_juv90_module.R) and are informative but updatable.
 # =============================================================================
 
 library(nimble)
@@ -225,18 +226,26 @@ ipmCode <- nimbleCode({
   # annual survival rates. Birds that survive but settle elsewhere are not
   # counted here; immigration from other populations enters via omega.
   #
-  # Priors are Beta fits to the posteriors from the 1990s chick+adult module
-  # (scripts/LEYE_juv90_module.R): 139 chicks banded 1995-1998 analysed jointly
-  # with 178 same-era adults, with recruitment age marginalised over.
+  # Priors are method-of-moments Beta fits to the posteriors from the two-era
+  # recruitment module (scripts/LEYE_recruitment_two_era.R), which supersedes
+  # LEYE_juv90_module.R: 139 chicks banded 1995-1998 plus 178 contemporaneous
+  # adults, and 133 chicks banded 2018-2025, fitted jointly with detection
+  # shared across eras and recruitment age marginalised over.
+  #   pi_rec takes the MODERN-era estimate pi_M (posterior mean 0.049), not the
+  #     1990s pi_90 (0.115) -- the IPM window is 2014-2025. Recruitment fell
+  #     between eras, so using the 1990s value here would bias N upward.
+  #   kappa is estimated jointly across both eras: the age-at-first-return
+  #     patterns are nearly identical and neither era alone supports a split.
   # Priors on pi_rec/kappa rather than psi1/psi2 directly because the former
   # are essentially uncorrelated in that posterior (r = -0.01), so independent
   # priors do not distort the joint. Informative but updatable.
   # Hyperparameters are CONSTANTS, not literals, so the prior-sensitivity run is
   # a config change rather than a forked copy of the model. Defaults are the
-  # Beta fits to the 1990s module posterior; pass a_pi = b_pi = a_kap = b_kap = 1
-  # for the vague-prior comparison.
-  pi_rec ~ dbeta(a_pi, b_pi) # total P(recruit locally): 1990s mean 0.143
-  kappa ~ dbeta(a_kap, b_kap) # fraction recruiting at age 1: 1990s mean 0.490
+  # two-era fits below; pass a_pi = b_pi = a_kap = b_kap = 1 for the vague-prior
+  # comparison. They are copied across by hand -- if the module is re-run, refit
+  # with mu <- mean(x); k <- mu * (1 - mu) / var(x) - 1; c(mu * k, (1 - mu) * k).
+  pi_rec ~ dbeta(a_pi, b_pi) # total P(recruit locally): modern mean 0.049
+  kappa ~ dbeta(a_kap, b_kap) # fraction recruiting at age 1: both eras, mean 0.485
   psi1 <- pi_rec * kappa
   psi2 <- pi_rec * (1 - kappa)
 
@@ -647,7 +656,11 @@ summarize_ipm <- function(
   ipm_years,
   T,
   cjs_int_start,
-  plot_dir = "output/plots"
+  plot_dir = "output/plots",
+  # Recruitment prior hyperparameters, read from the model constants so the
+  # prior -> posterior table below always describes the prior the model
+  # actually used -- including under the vague-prior sensitivity run.
+  prior_pars = constants[c("a_pi", "b_pi", "a_kap", "b_kap")]
 ) {
   library(MCMCvis)
   library(gt)
@@ -826,19 +839,20 @@ summarize_ipm <- function(
     "Local recruitment (composite survival x philopatry)",
     digits = 4
   )
-  # Priors are informative (1990s module); show how far the counts moved them.
+  # Recruitment priors are informative; show how far the counts moved them.
   # If posterior ~= prior the count data carry little extra recruitment signal.
+  # These hyperparameters are read from prior_pars, NOT repeated as literals.
+  # They were literals until 2026-08-25, and went stale when the priors were
+  # switched from the 1990s-only module to the two-era fits: the table compared
+  # the posterior against Beta(2.268, 13.610) (prior mean 0.143) while the model
+  # was actually fitted with Beta(2.4200, 47.2852) (0.049), overstating how far
+  # the counts had moved recruitment.
+  beta_row <- function(a, b) {
+    c(mean = a / (a + b), lwr = qbeta(.025, a, b), upr = qbeta(.975, a, b))
+  }
   pri <- rbind(
-    pi_rec = c(
-      mean = 2.268 / (2.268 + 13.610),
-      lwr = qbeta(.025, 2.268, 13.610),
-      upr = qbeta(.975, 2.268, 13.610)
-    ),
-    kappa = c(
-      mean = 6.054 / (6.054 + 6.309),
-      lwr = qbeta(.025, 6.054, 6.309),
-      upr = qbeta(.975, 6.054, 6.309)
-    )
+    pi_rec = beta_row(prior_pars$a_pi, prior_pars$b_pi),
+    kappa = beta_row(prior_pars$a_kap, prior_pars$b_kap)
   )
   cmp <- cbind(
     prior_mean = pri[, "mean"],
@@ -850,7 +864,13 @@ summarize_ipm <- function(
   )
   show_gt(
     round(cmp, 4),
-    "Prior -> posterior movement (informative priors from 1990s module)",
+    sprintf(
+      "Prior -> posterior movement (pi_rec ~ Beta(%.4g, %.4g), kappa ~ Beta(%.4g, %.4g))",
+      prior_pars$a_pi,
+      prior_pars$b_pi,
+      prior_pars$a_kap,
+      prior_pars$b_kap
+    ),
     digits = 4
   )
 
@@ -1035,11 +1055,12 @@ summarize_ipm <- function(
   #
   # There is deliberately NO juvenile survival curve here. Juvenile survival is
   # no longer a model quantity: the old phi_juv = rho * phi_ad had rho weakly
-  # identified (it traded off directly against immigration), and the 1990s chick
-  # data showed recruitment is delayed and partly to age 2. Recruitment is now
-  # psi1/psi2 -- composite survive-AND-return-locally probabilities, not annual
-  # survival rates -- and is reported in the recruitment table above rather than
-  # plotted on a survival axis, where it would invite a false comparison.
+  # identified (it traded off directly against immigration), and the chick data
+  # from both eras show recruitment is delayed and partly to age 2. Recruitment
+  # is now psi1/psi2 -- composite survive-AND-return-locally probabilities, not
+  # annual survival rates -- and is reported in the recruitment table above
+  # rather than plotted on a survival axis, where it would invite a false
+  # comparison.
   #
   # Tagged/male survival differs by the fitted covariate effects; this figure
   # shows the BASELINE population rates. Use the forest plot for covariates.
