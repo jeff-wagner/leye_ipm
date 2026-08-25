@@ -117,7 +117,7 @@ dispersal is not separable from mortality here.
 | Prior sensitivity | Done — and it **overturned** an earlier conclusion |
 | Tag-effect robustness analyses | Done, but computed on the pre-correction encounter history — re-run |
 | Recruitment estimates | Now from the **modern era**; the 1990s cohorts still enter via the era comparison and shared detection |
-| Life-cycle figure and DAG | Done — both carry a stale "1990s prior" label |
+| Life-cycle figure and DAG | Done — both label the recruitment prior as the modern estimate, and name both cohorts (133 chicks 2018–25, 139 in 1995–98, with 178 1990s adults) |
 | Novelty check (is this the first LEYE IPM?) | **Not done** |
 | Study area map (F1), priors table (T1) | **Not done** |
 
@@ -237,6 +237,21 @@ Found during the robustness work; all belong in the Methods or Discussion.
 - **Transience runs the other way than expected** — the first-interval offset is
   *positive* (+0.659, 0.003–1.417), i.e. survival is higher just after banding.
   Mechanism unclear; worth a sentence rather than an explanation we cannot support.
+- **Recruitment is prior-driven, and immigration absorbs the difference**
+  (checked 2026-08-25). Under the informative prior the posterior barely leaves
+  it: π moves 0.0487 → 0.0496, **+0.0009**, and the interval is essentially
+  unchanged (prior 0.008–0.123, posterior 0.009–0.120). The counts carry almost
+  no independent recruitment signal, and none at all about the age split — under
+  vague priors κ returns 0.491 (0.024–0.975), which *is* Beta(1,1).
+  Under vague priors the counts pull π to 0.105 (0.004–0.258), roughly twice the
+  chick-based estimate, while ω falls from 0.163 to 0.124 to compensate. So the
+  two runs disagree about the **split** between local recruitment and
+  immigration but agree on λ (0.963 vs 0.966), which is what the paper is about.
+  Disclose this rather than let a reviewer find it: it is the empirical
+  signature of the additive ψ/ω confounding set out in *Model at a glance*, and
+  it is precisely why π carries an informative prior. The honest framing is that
+  the chick data identify recruitment and the counts identify λ; neither alone
+  separates recruitment from immigration.
 
 ### Optional but valuable
 
@@ -422,7 +437,11 @@ explicitly in Methods rather than left for a reviewer to find:
 3. **Adult survival in context** — relevance to harvest sustainability.
 4. **What limits inference** — demographic stochasticity; recruitment/immigration
    confounding; relative-scale abundance. Frame the stochasticity result as a
-   monitoring-design contribution, not an apology.
+   monitoring-design contribution, not an apology. Be explicit that the
+   recruitment estimate is prior-driven while λ is not: λ holds at 0.963–0.966
+   across informative and vague priors (see *Confounds to disclose*). Lead with
+   that stability — it is what licenses the λ and tLTRE results even though the
+   recruitment/immigration split is not identified.
 5. **Conservation implications.**
 
 ---

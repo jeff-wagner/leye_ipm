@@ -2456,7 +2456,7 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td>Life-cycle figure and DAG</td>
-<td>Done — both carry a stale “1990s prior” label</td>
+<td>Done — both label the recruitment prior as the modern estimate, and name both cohorts (133 chicks 2018–25, 139 in 1995–98, with 178 1990s adults)</td>
 </tr>
 <tr class="odd">
 <td>Novelty check (is this the first LEYE IPM?)</td>
@@ -2532,6 +2532,7 @@ and immigration genuinely high.
 <li><strong>Tag type is largely confounded with banding era</strong> — geolocators 2010–2018, GPS 2018–2020, untagged 1995–2025. Not fatal: 52 untagged birds were banded in the same 2018–2020 window as the GPS birds, so the contrast is not purely across eras. Year-varying baseline survival absorbs period effects.</li>
 <li><strong>Sex composition differs</strong> — GPS 58.7% female vs untagged 44.8%. Since males survive better (OR 1.53), this biases GPS <em>downward</em>; it is controlled by the sex covariate, but the model must retain sex for that reason.</li>
 <li><strong>Transience runs the other way than expected</strong> — the first-interval offset is <em>positive</em> (+0.659, 0.003–1.417), i.e. survival is higher just after banding. Mechanism unclear; worth a sentence rather than an explanation we cannot support.</li>
+<li><strong>Recruitment is prior-driven, and immigration absorbs the difference</strong> (checked 2026-08-25). Under the informative prior the posterior barely leaves it: π moves 0.0487 → 0.0496, <strong>+0.0009</strong>, and the interval is essentially unchanged (prior 0.008–0.123, posterior 0.009–0.120). The counts carry almost no independent recruitment signal, and none at all about the age split — under vague priors κ returns 0.491 (0.024–0.975), which <em>is</em> Beta(1,1). Under vague priors the counts pull π to 0.105 (0.004–0.258), roughly twice the chick-based estimate, while ω falls from 0.163 to 0.124 to compensate. So the two runs disagree about the <strong>split</strong> between local recruitment and immigration but agree on λ (0.963 vs 0.966), which is what the paper is about. Disclose this rather than let a reviewer find it: it is the empirical signature of the additive ψ/ω confounding set out in <em>Model at a glance</em>, and it is precisely why π carries an informative prior. The honest framing is that the chick data identify recruitment and the counts identify λ; neither alone separates recruitment from immigration.</li>
 </ul>
 </section>
 <section id="optional-but-valuable" class="level3">
@@ -2671,7 +2672,7 @@ y_{j,t} &amp;\sim \mathrm{Bernoulli}\!\left(p_j\, z_{j,t}\right)
 <li><strong>Delayed recruitment</strong> — natural-history contribution; consequences for any LEYE population model assuming age-1 breeding, including harvest assessments.</li>
 <li><strong>Tag effects</strong> — magnitude vs the geolocator literature; implications for deployment, permitting, and for inference in existing tracking studies.</li>
 <li><strong>Adult survival in context</strong> — relevance to harvest sustainability.</li>
-<li><strong>What limits inference</strong> — demographic stochasticity; recruitment/immigration confounding; relative-scale abundance. Frame the stochasticity result as a monitoring-design contribution, not an apology.</li>
+<li><strong>What limits inference</strong> — demographic stochasticity; recruitment/immigration confounding; relative-scale abundance. Frame the stochasticity result as a monitoring-design contribution, not an apology. Be explicit that the recruitment estimate is prior-driven while λ is not: λ holds at 0.963–0.966 across informative and vague priors (see <em>Confounds to disclose</em>). Lead with that stability — it is what licenses the λ and tLTRE results even though the recruitment/immigration split is not identified.</li>
 <li><strong>Conservation implications.</strong></li>
 </ol>
 <hr>
