@@ -33,6 +33,11 @@ nimble_generatedCode*/
 # Claude Code local settings (per-machine permissions, not shared config)
 .claude/settings.local.json
 
+# ---- Office lock files --------------------------------------------------
+# Word/Excel write a hidden ~$name.docx alongside any open document. They are
+# transient, machine-specific, and appear and vanish as files are opened.
+~$*
+
 # ---- OS junk ------------------------------------------------------------
 Thumbs.db
 ehthumbs.db
@@ -41,7 +46,25 @@ desktop.ini
 ._*
 
 # Manuscript materials ----------------------------------------------------
-manuscript/
+# Ignore the working directory (rendered HTML, Quarto's PLAN_files/ asset
+# bundle, Word drafts) but KEEP manuscript/figures/ and PLAN.md -- the figures
+# are generated deliverables, and PLAN.md carries the model specification and
+# the record of decisions behind the analysis. PLAN.html is the render of
+# PLAN.md and stays ignored, along with its PLAN_files/ asset bundle.
+#
+# Note the trailing /* rather than a plain `manuscript/`. Git will not descend
+# into an excluded directory, so `manuscript/` followed by
+# `!manuscript/figures/` silently fails: the negation can never be reached.
+# Excluding the CONTENTS instead leaves the directory itself visible, which is
+# what allows a subdirectory to be re-included.
+#
+# This rule also sat here for a while with no effect, because 14 files under
+# manuscript/ were already tracked and Git will not ignore a tracked file.
+# They were untracked with `git rm -r --cached manuscript` on 2026-08-14;
+# earlier versions remain in history.
+manuscript/*
+!manuscript/figures/
+!manuscript/PLAN.md
 
 # ---- Misc ---------------------------------------------------------------
 *.tmp
