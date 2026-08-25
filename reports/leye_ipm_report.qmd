@@ -523,7 +523,7 @@ ggplot(gains, aes(year, value, fill = source)) +
       "Local recruitment accounts for %.0f%% of gains (95%% CrI %.0f–%.0f%%)",
       100 * mean(share), 100 * quantile(share, .025), 100 * quantile(share, .975)
     ),
-    x = NULL, y = "Birds added"
+    x = NULL, y = "# Birds added"
   ) +
   theme_leye()
 ```
@@ -592,6 +592,7 @@ ggplot(fr, aes(year, med)) +
     labels = c(`TRUE` = "In process model", `FALSE` = "Beyond count series"), name = NULL
   ) +
   scale_x_continuous(breaks = fr$year) +
+  scale_y_continuous(limits = c(0,4)) +
   labs(title = "Productivity", x = NULL, y = "Chicks per pair") +
   theme_leye() +
   theme(legend.position = "top")
@@ -885,14 +886,23 @@ if (file.exists(sens_path)) {
 ```
 
 ::: {.callout-important appearance="simple"}
-**The recruitment level is not an artifact of the prior; the timing is.**
+**The count data and the chick data disagree about recruitment.**
 
-Under a flat prior `pi_rec` barely moves, so the count data pull it to the same
-place either way. `kappa` also keeps its central value but its interval widens
-dramatically — the age-1 versus age-2 split rests entirely on the 1990s chick
-histories, not on anything in the modern data. Since those cohorts are partly
-simulated (see [Caveats]), the recruitment *schedule* is the weakest link in
-this analysis, while the recruitment *rate* is on firmer ground.
+Under a flat prior the counts pull `pi_rec` to roughly twice the value the chick
+resights support. The informative prior wins because it is the tighter of the
+two, so the reported recruitment rate reflects the chick data more than the
+counts.
+
+This is worth stating plainly rather than smoothing over, and three readings are
+possible without the analysis being able to separate them. The counts cannot
+distinguish recruitment from immigration, so recruitment inferred from counts
+absorbs any unmodelled inflow. The assumption that modern chick detection
+matches the 1990s may be too generous, which would bias recruitment downward.
+Or local recruitment genuinely is low and immigration genuinely is high.
+
+The recruitment **timing** is a separate matter and remains almost entirely
+prior-driven: `kappa` keeps its central value while its interval widens
+dramatically under a flat prior.
 :::
 
 # Caveats {#caveats}
