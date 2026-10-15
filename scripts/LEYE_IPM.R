@@ -47,11 +47,15 @@ set.seed(20260521)
 ## ===========================================================================
 
 # ---- 1a. Counts ------------------------------------------------------------
-dc <- read.csv("./Arin LEYE R code/data_2025.csv")
+# 2026 counts added 2026-10-14. The 2014-2025 records are byte-identical to the
+# previous file, so this extends the series rather than revising it. Everything
+# downstream keys off count_years rather than hard-coded years, so T, the CJS
+# overflow slots and the fecundity mapping all follow automatically -- see 1d.
+dc <- read.csv("./Arin LEYE R code/data_2026.csv", fileEncoding = "UTF-8-BOM")
 dc$yr_idx <- as.integer(factor(dc$year))
 dc$wk_idx <- as.integer(factor(dc$week))
 dc$wet_idx <- as.integer(factor(dc$wetland))
-count_years <- sort(unique(dc$year)) # 2014..2025
+count_years <- sort(unique(dc$year)) # 2014..2026
 nYearC <- length(count_years)
 nWeek <- length(unique(dc$wk_idx))
 nWet <- length(unique(dc$wet_idx))
@@ -228,24 +232,24 @@ ipmCode <- nimbleCode({
   #
   # Priors are method-of-moments Beta fits to the posteriors from the two-era
   # recruitment module (scripts/LEYE_recruitment_two_era.R), which supersedes
-  # LEYE_juv90_module.R: 139 chicks banded 1995-1998 plus 178 contemporaneous
+  # LEYE_juv90_module.R: 122 chicks banded 1995-1999 plus 178 contemporaneous
   # adults, and 133 chicks banded 2018-2025, fitted jointly with detection
   # shared across eras and recruitment age marginalised over.
-  #   pi_rec takes the MODERN-era estimate pi_M (posterior mean 0.049), not the
-  #     1990s pi_90 (0.115) -- the IPM window is 2014-2025. Recruitment fell
+  #   pi_rec takes the MODERN-era estimate pi_M (posterior mean 0.054), not the
+  #     1990s pi_90 (0.139) -- the IPM window is 2014-2025. Recruitment fell
   #     between eras, so using the 1990s value here would bias N upward.
   #   kappa is estimated jointly across both eras: the age-at-first-return
   #     patterns are nearly identical and neither era alone supports a split.
   # Priors on pi_rec/kappa rather than psi1/psi2 directly because the former
-  # are essentially uncorrelated in that posterior (r = -0.01), so independent
+  # are essentially uncorrelated in that posterior (r = -0.02), so independent
   # priors do not distort the joint. Informative but updatable.
   # Hyperparameters are CONSTANTS, not literals, so the prior-sensitivity run is
   # a config change rather than a forked copy of the model. Defaults are the
   # two-era fits below; pass a_pi = b_pi = a_kap = b_kap = 1 for the vague-prior
   # comparison. They are copied across by hand -- if the module is re-run, refit
   # with mu <- mean(x); k <- mu * (1 - mu) / var(x) - 1; c(mu * k, (1 - mu) * k).
-  pi_rec ~ dbeta(a_pi, b_pi) # total P(recruit locally): modern mean 0.049
-  kappa ~ dbeta(a_kap, b_kap) # fraction recruiting at age 1: both eras, mean 0.485
+  pi_rec ~ dbeta(a_pi, b_pi) # total P(recruit locally): modern mean 0.054
+  kappa ~ dbeta(a_kap, b_kap) # fraction recruiting at age 1: both eras, mean 0.469
   psi1 <- pi_rec * kappa
   psi2 <- pi_rec * (1 - kappa)
 
@@ -466,7 +470,15 @@ constants <- list(
   # recruitment in a model of the 2014-2025 population was always a
   # substitution made for want of anything better; there are now 133 chicks
   # banded 2018-2025 with resights, so the prior comes from the era the IPM
-  # actually describes. Prior mean recruitment falls 0.143 -> 0.049.
+  # actually describes. Prior mean recruitment falls 0.143 -> 0.054.
+  #
+  # Refitted 2026-09-29 on the real 1990s cohort sizes (122 chicks across
+  # 1995-1999) after they were recovered from the banding records; 1997/1998
+  # had been simulated and 1999 was missing entirely. Smaller 1990s
+  # denominators raise pi_90 (0.115 -> 0.139), and because detection is shared
+  # across eras that carries into the modern estimate as well:
+  #   pi_M   Beta(2.4200, 47.2852) mean 0.0487  ->  Beta(1.8410, 32.5058) 0.0536
+  #   kappa  Beta(7.7764,  8.2649) mean 0.4848  ->  Beta(7.6338,  8.6569) 0.4686
   #
   # The modern chick data is passed as a prior rather than a fourth likelihood
   # because its detection probability is not identifiable on its own (5
@@ -474,10 +486,10 @@ constants <- list(
   # that module. Folding it in directly would mean extending the IPM back to
   # 1995 across a nine-year gap. The two data sets are disjoint from the IPM's,
   # so nothing is used twice.
-  a_pi = 2.4200,
-  b_pi = 47.2852,
-  a_kap = 7.7764,
-  b_kap = 8.2649,
+  a_pi = 1.8410,
+  b_pi = 32.5058,
+  a_kap = 7.6338,
+  b_kap = 8.6569,
   # Modal clutch size. LEYE lay 4 eggs; no nest in these data exceeded 4, which
   # the assertion in section 1c enforces.
   clutch = CLUTCH
@@ -756,10 +768,28 @@ summarize_ipm <- function(
     ),
     "Baseline adult survival phi_ad (untagged, female) by transition"
   )
-  report_note(sprintf(
-    "pooled pre-2014 (phi_pre): %.3f | pooled 2025->2026 (phi_post): %.3f\n",
-    mean(mat[, "phi_pre"]),
-    mean(mat[, "phi_post"])
+  # phi_pre and phi_post are overflow slots for CJS intervals outside the count
+  # series. Whether either has data depends on how far the counts reach, so
+  # report what each slot actually absorbed. A slot with nothing mapped to it is
+  # sampled from its prior alone, and printing that as an estimate would be a
+  # fabricated number -- since 2026-10-14 the counts run to 2026 and phi_post is
+  # empty. The slot stays in the model because the counts may lag again.
+  slot_note <- function(label, par, slot) {
+    n <- sum(cjs_phi_lookup == slot)
+    if (n == 0) {
+      sprintf("%s: not estimated (no CJS interval maps here; prior only)", label)
+    } else {
+      sprintf("%s: %.3f (%d interval%s)", label, mean(mat[, par]), n,
+              if (n == 1) "" else "s")
+    }
+  }
+  report_note(paste0(
+    slot_note(sprintf("pooled pre-%d (phi_pre)", min(ipm_years)),
+              "phi_pre", PHI_PRE_SLOT),
+    " | ",
+    slot_note(sprintf("pooled post-%d (phi_post)", max(ipm_years)),
+              "phi_post", PHI_POST_SLOT),
+    "\n"
   ))
 
   eff <- rbind(
@@ -808,10 +838,22 @@ summarize_ipm <- function(
     data.frame(year = ipm_years, round(fr, 3)),
     "Fecundity f_rate (chicks/pair) by year"
   )
-  report_note(sprintf(
-    "pooled 2026 (beyond count series): %.3f\n",
-    mean(mat[, paste0("f_rate[", T + 1, "]")])
-  ))
+  # Same overflow logic as phi_post: f_rate[T+1] absorbs productivity years past
+  # the end of the count series. With counts running to 2026 nothing maps there,
+  # so it is a prior draw and must not be printed as an estimate.
+  n_fpost <- sum(prod_ipm_idx == F_POST_SLOT)
+  report_note(if (n_fpost == 0) {
+    sprintf(
+      "pooled post-%d f_rate: not estimated (no productivity year maps here)\n",
+      max(ipm_years)
+    )
+  } else {
+    sprintf(
+      "pooled post-%d (beyond count series): %.3f (%d year%s)\n",
+      max(ipm_years), mean(mat[, paste0("f_rate[", T + 1, "]")]),
+      n_fpost, if (n_fpost == 1) "" else "s"
+    )
+  })
 
   lam <- t(apply(mat[, paste0("lambda[", 1:(T - 1), "]")], 2, q))
   show_gt(
@@ -880,12 +922,27 @@ summarize_ipm <- function(
   # contribution to annual gains so the trade-off is visible.
   Rm <- mat[, paste0("N_rec[", 3:T, "]"), drop = FALSE]
   Im <- mat[, paste0("Imm[", 3:T, "]"), drop = FALSE]
-  frac <- rowSums(Rm) / (rowSums(Rm) + rowSums(Im))
+  # Recruits and immigrants are Poisson counts, so a draw in which the
+  # population gained NOTHING in any year is legitimate -- and gives 0/0. That
+  # never fired until the 2026-09-29 refit widened and lowered the recruitment
+  # prior; it then crashed the whole summary at quantile(). Drop those draws
+  # from the ratio (the share is undefined for them, not zero) and say how many.
+  gains <- rowSums(Rm) + rowSums(Im)
+  frac <- rowSums(Rm)[gains > 0] / gains[gains > 0]
+  n_undef <- sum(gains == 0)
   report_note(sprintf(
-    "Share of annual gains from local recruitment: %.3f (%.3f, %.3f)\n",
+    "Share of annual gains from local recruitment: %.3f (%.3f, %.3f)%s\n",
     mean(frac),
     quantile(frac, .025),
-    quantile(frac, .975)
+    quantile(frac, .975),
+    if (n_undef) {
+      sprintf(
+        "  [undefined in %d of %d draws with no gains in any year]",
+        n_undef, length(gains)
+      )
+    } else {
+      ""
+    }
   ))
 
   # ---- group survival helper (sex x tag) -------------------------------------

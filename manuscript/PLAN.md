@@ -50,16 +50,21 @@ Prairie Pothole migration paper, so the species and audience are established the
    mark–resight, and productivity — adult apparent survival ≈ 0.63–0.70.
 2. **Recruitment is delayed and low.** Locally-produced young recruit at ages 1 and 2
    in roughly equal proportion, not entirely at age 1 as commonly assumed. Now supported
-   by **two independent eras** — 139 chicks banded 1995–98 and 133 banded 2018–25 —
+   by **two independent eras** — 122 chicks banded 1995–99 and 133 banded 2018–25 —
    with near-identical age-at-first-return patterns thirty years apart. Modern total
    probability of recruiting locally ≈ 5%.
 2b. **Immigration, not local production, appears to sustain the population.** With the
-   modern recruitment prior in place, local recruits account for only ~31% of annual
+   modern recruitment prior in place, local recruits account for only ~32% of annual
    gains (down from 56% under the 1990s-derived prior), and immigration contributes
    ~17% of λ against recruitment's ~7%. This is the headline the tLTRE now delivers,
    and it has direct conservation implications: a local population propped up by
    immigration is vulnerable to declines elsewhere in the flyway.
-3. **GPS tags substantially reduce apparent survival** — a ~45% relative reduction,
+   **State it with its range.** The ordering holds under both informative priors
+   but the margin depends on which π the IPM receives: 16.7% vs 7.0% on the
+   default, 14.3% vs 9.6% cohort-averaged — P(immigration > recruitment) 0.81 and
+   0.67 respectively. Claim the direction, not the ratio. See *Confounds to
+   disclose*.
+3. **GPS tags substantially reduce apparent survival** — a ~43% relative reduction,
    several times the published geolocator benchmark.
 4. **Demographic stochasticity dominates variation in growth rate** in a population
    this small, which has direct consequences for monitoring design.
@@ -67,7 +72,7 @@ Prairie Pothole migration paper, so the species and audience are established the
 
 ### Framing constraints — accept these early, do not overreach
 
-- **λ = 0.963 (0.914–1.025). The interval includes 1.** This is *not* a demonstrated
+- **λ = 0.959 (0.914–1.015). The interval includes 1.** This is *not* a demonstrated
   decline. Write "probably declining, most consistent with a slow decrease" and let
   the vital rates carry the paper.
 - **Recruitment and immigration are confounded.** Both add birds and the relative-scale
@@ -107,6 +112,10 @@ dispersal is not separable from mortality here.
 > went in — small shifts, but the sex effect's lower bound moved onto exactly 1.00,
 > which changes how it can be described. Re-verify every quoted value against the
 > current posterior before drafting, and again before submission.
+>
+> **Values below were re-checked against `LEYE_IPM_samples.rds` on 2026-09-29**, after
+> the refit on the real 1990s banding totals. Goodness-of-fit p-values are now
+> counts 0.334, productivity 0.506, mark–resight 0.478.
 
 | Component | State |
 |---|---|
@@ -114,44 +123,56 @@ dispersal is not separable from mortality here.
 | tLTRE | Done |
 | Quarto report with publication-quality figures | Done |
 | Goodness-of-fit / posterior predictive checks | Done — and it caught a real misspecification |
-| Prior sensitivity | Done — and it **overturned** an earlier conclusion |
+| Prior sensitivity | Done — and it **overturned** an earlier conclusion. Now three-way (typical-cohort, cohort-averaged, vague); λ is identical across all three, only the recruitment/immigration split moves |
+| 2026 counts | **In** (added 2026-10-14). The series now runs 2014–2026, 935 records. λ 0.965 → 0.959 and P(λ<1) 0.88 → 0.94; the tLTRE split and every other conclusion held. Both sensitivity fits were re-run on the longer series |
+| Model structure in the report | Done — life-cycle figure, DAG and the full statistical formulation are now a section of the Quarto report, matching *Model at a glance* below |
 | Tag-effect robustness analyses | Done, but computed on the pre-correction encounter history — re-run |
-| Recruitment estimates | Now from the **modern era**; the 1990s cohorts still enter via the era comparison and shared detection |
-| Life-cycle figure and DAG | Done — both label the recruitment prior as the modern estimate, and name both cohorts (133 chicks 2018–25, 139 in 1995–98, with 178 1990s adults) |
+| Recruitment estimates | Now from the **modern era**; the 1990s cohorts still enter via the era comparison and shared detection. Refitted 2026-09-29 on the real banding totals (122 chicks, 1995–1999) — no conclusion changed |
+| Life-cycle figure and DAG | Done — both label the recruitment prior as the modern estimate, and name both cohorts (133 chicks 2018–25, 122 in 1995–99, with 178 1990s adults) |
 | Novelty check (is this the first LEYE IPM?) | **Not done** |
 | Study area map (F1), priors table (T1) | **Not done** |
 
 ---
 
-## 3. Phase 0 — data resolution (blocking, do first)
+## 3. Phase 0 — data resolution (resolved 2026-09-29)
 
-**Downgraded but not resolved.** The IPM's recruitment prior now comes from the modern
-era (133 chicks, 2018–2025), so the simulated 1990s cohorts no longer set it directly.
-They still enter two ways: they size the 1990s half of the era comparison, and the 178
-contemporaneous 1990s adults pin the shared detection that makes the modern estimate
-identifiable. Five modern resights cannot determine detection alone.
+**Resolved.** The real chick banding totals were recovered from the original records:
+37 / 34 / 11 / 30 / 10 for 1995–1999, **122 chicks**, against the 139 the file used to
+carry. 1995 and 1996 happened to be right; 1997 and 1998 had been simulated and were
+overstated by 9 and 18, and the 1999 cohort was missing altogether. The whole chain was
+rebuilt and refitted on that day.
 
-So this is no longer blocking for the *headline* recruitment number, but it is still
-blocking for any claim about **change between eras** — which is now a candidate result
-(P(decline) = 0.91, ratio 0.10–1.61).
+- [x] Recover the real chick banding totals from the original records.
+- [x] Rebuild `data/LEYE_juv_EH_1995_2000.csv` from real denominators. The simulation
+      branch is deleted; cohort sizes are a documented constant with a `stopifnot`
+      guard, so the file no longer depends on the seed.
+- [x] Refit `scripts/LEYE_recruitment_two_era.R` → new `pi_M` / `kappa` priors.
+- [x] Update the Beta priors in `scripts/LEYE_IPM.R`
+      (`dbeta(1.8410, 32.5058)` and `dbeta(7.6338, 8.6569)`, from the modern era).
+- [x] Refit the IPM, re-run the tLTRE, re-render the report.
+- [x] **Re-check whether any conclusion changed.** None did — see below.
+- [ ] Confirm whether the 1990s chicks carried colour marks (the module shares detection
+      between chicks and adults on that assumption; if they were metal-band-only,
+      detection was lower and `psi` is underestimated). **Still open.**
 
-The 1990s cohort denominators for 1995/1997/1998 remain *simulated*
-(`rpois(4, 0.85 * num_broods96)`, an explicitly arbitrary mean).
+**What moved.** Smaller 1990s denominators raise π₉₀ from 0.115 to 0.139, and because
+detection is shared across eras that carries into the modern estimate too: π_M 0.049 →
+0.054, κ 0.485 → 0.469. Downstream the changes are small — λ 0.963 → 0.965, the tLTRE
+level split 76/17/7 → 75/17/7, P(immigration > recruitment) 0.83 → 0.81, GPS odds ratio
+0.29 → 0.28. **Every conclusion in this document survives.** That robustness is itself
+worth a sentence in the manuscript: the headline did not depend on the simulated
+denominators, which is not something we could assert before.
 
-- [ ] Recover the real 1995/1997/1998 chick banding totals from the original records.
-- [ ] Rebuild `data/LEYE_juv_EH_1995_2000.csv` from real denominators.
-      `scripts/create_juv_eh_1995_2000.R` is now seeded, so the rebuild is reproducible.
-      Delete the simulation branch once real totals are in.
-- [ ] Confirm whether the 1990s chicks carried colour marks (the juvenile module
-      currently shares detection between chicks and adults on that assumption; if they
-      were metal-band-only, detection was lower and `psi` is underestimated).
-- [ ] Refit `scripts/LEYE_recruitment_two_era.R` → new `pi_M` / `kappa` priors.
-      (Superseded `LEYE_juv90_module.R`, which fitted the 1990s alone; that script
-      is retained only for its validated likelihood functions.)
-- [ ] Update the Beta priors in `scripts/LEYE_IPM.R` (currently `dbeta(2.4200, 47.2852)`
-      and `dbeta(7.7764, 8.2649)`, from the modern era).
-- [ ] Refit the IPM, re-run the tLTRE, re-render the report.
-- [ ] **Re-check whether any conclusion changed.** Recruitment feeds λ and the tLTRE.
+**The one thing to disclose.** The 1997 cohort is 11 chicks with 7 returning — a 64%
+local return rate against 11%, 7%, 0% and 0% in the other 1990s cohorts and 4% in the
+modern era. 1997 was a genuinely low-effort season (21 adults marked, against
+52/48/36/21 around it), so the small denominator is real, but one cohort now carries
+most of the 1990s recruitment signal. Say so rather than leaving a reviewer to find it.
+
+**Still blocking the era comparison**, though for a different reason than before: the
+contrast is now P(decline) = 0.91 with a ratio spanning 0.08–1.59. That is suggestive,
+not a result, and the width comes from 13 and 5 returning birds — not from the
+denominators, which are now real.
 
 ---
 
@@ -169,13 +190,25 @@ The 1990s cohort denominators for 1995/1997/1998 remain *simulated*
       Replaced with nest success × Binomial(4, q). Post-fix p-values:
       **counts 0.313, productivity 0.498, mark-resight 0.475.**
 - [x] **Prior sensitivity on recruitment.** Done, via prior hyperparameters passed
-      as constants (so the sensitivity run is a config change, not a forked model).
+      as constants (so each sensitivity run is a config change, not a forked model).
       **This conclusion REVERSED when the modern recruitment prior replaced the
       1990s one, and the earlier version of this entry was wrong.**
+      Now a **three-way** comparison — typical-cohort (default), cohort-averaged,
+      and vague — reported in the Quarto report's prior-sensitivity section with
+      π, κ, ω, λ and the contribution shares for each. Both companion fits are
+      built by `scripts/LEYE_IPM_sensitivity.R` (no argument runs both;
+      `cohortmean` or `vague` runs one), which takes the data, structure and
+      sampler settings from `scripts/LEYE_IPM.R` and overrides only the
+      recruitment hyperparameters — so the companions stay comparable to the main
+      fit by construction rather than by anyone remembering to keep them in step.
+      The vague fit previously had no script at all; it was produced by
+      hand-editing constants, with no record of how. Each is checked against the
+      main fit's *structural* fingerprint at render time, so a stale companion is
+      flagged in the report rather than silently compared.
 
       Under the 1990s prior, informative and vague agreed (0.106 vs 0.108) and the
       recruitment level looked safely data-driven. Under the modern prior they
-      differ two-fold — `pi_rec` = **0.050 informative vs 0.105 vague** — because
+      differ two-fold — `pi_rec` = **0.052 informative vs 0.105 vague** — because
       the counts and the modern chick resights disagree, and the tighter modern
       prior wins. The old agreement was a coincidence: the 1990s prior happened to
       sit near what the counts wanted.
@@ -203,7 +236,10 @@ The 1990s cohort denominators for 1995/1997/1998 remain *simulated*
       were not (−0.20, p = 0.84). This works *against* the finding — heavier birds
       should survive better — so the tag effect is conservative.
 - [x] **Standalone CJS check.** Done. M0 gives GPS OR 0.28 (0.15–0.53) vs the IPM's
-      0.29 (0.15–0.54) — the tag effect is not an artifact of IPM linkage.
+      0.28 (0.15–0.53) — the tag effect is not an artifact of IPM linkage.
+      *Caveat:* the standalone fit is from 2026-08-06, before the encounter-history
+      correction, so it is the one side of this comparison still to be re-run
+      (see the Status table). The IPM side is current as of 2026-10-14.
 - [x] **Transience control.** Added because exposure differs sharply by tag class
       (untagged 25.2% first-intervals vs geo 9.0%, GPS 14.0%). Including it does not
       weaken the GPS effect (0.28 → 0.25).
@@ -238,20 +274,42 @@ Found during the robustness work; all belong in the Methods or Discussion.
   *positive* (+0.659, 0.003–1.417), i.e. survival is higher just after banding.
   Mechanism unclear; worth a sentence rather than an explanation we cannot support.
 - **Recruitment is prior-driven, and immigration absorbs the difference**
-  (checked 2026-08-25). Under the informative prior the posterior barely leaves
-  it: π moves 0.0487 → 0.0496, **+0.0009**, and the interval is essentially
-  unchanged (prior 0.008–0.123, posterior 0.009–0.120). The counts carry almost
-  no independent recruitment signal, and none at all about the age split — under
-  vague priors κ returns 0.491 (0.024–0.975), which *is* Beta(1,1).
-  Under vague priors the counts pull π to 0.105 (0.004–0.258), roughly twice the
-  chick-based estimate, while ω falls from 0.163 to 0.124 to compensate. So the
-  two runs disagree about the **split** between local recruitment and
-  immigration but agree on λ (0.963 vs 0.966), which is what the paper is about.
-  Disclose this rather than let a reviewer find it: it is the empirical
-  signature of the additive ψ/ω confounding set out in *Model at a glance*, and
-  it is precisely why π carries an informative prior. The honest framing is that
-  the chick data identify recruitment and the counts identify λ; neither alone
+  (re-checked 2026-10-02 across three prior settings). Under the default prior
+  the posterior barely leaves it: π moves 0.0536 → 0.0513, **−0.0023**, and the
+  interval is essentially unchanged (prior 0.006–0.149, posterior 0.006–0.135).
+  The counts carry almost no independent recruitment signal, and none at all
+  about the age split — under vague priors κ returns 0.491 (0.024–0.975), which
+  *is* Beta(1,1).
+
+  | prior on π | π | ω | λ | rec. share | imm. share | P(imm > rec) |
+  |---|---|---|---|---|---|---|
+  | typical cohort (default) | 0.051 | 0.157 | 0.961 | 7.0% | 16.7% | 0.81 |
+  | cohort-averaged | 0.071 | 0.135 | 0.961 | 9.6% | 14.3% | 0.67 |
+  | vague | 0.103 | 0.114 | 0.963 | 13.5% | 12.1% | 0.46 |
+
+  The three runs trace the recruitment–immigration ridge: as π rises, ω falls to
+  compensate and **λ does not move** — identical to three decimals. The paper's
+  growth-rate results are immune to this choice; only the *attribution* is not.
+  Disclose it rather than let a reviewer find it: it is the empirical signature
+  of the additive ψ/ω confounding set out in *Model at a glance*, and it is
+  precisely why π carries an informative prior. The honest framing is that the
+  chick data identify recruitment and the counts identify λ; neither alone
   separates recruitment from immigration.
+
+- **Which π the IPM should receive is a genuine modelling choice** (added
+  2026-10-02). `LEYE_recruitment_two_era.R` fits a cohort random effect on the
+  logit scale and reports π_M = ilogit(μ_π + b_era) — the *typical* cohort, with
+  its random effect at zero. But the IPM uses π in an expected-count expression,
+  R = N·(f/2)·ψ, and has no cohort random effect of its own, so arguably it wants
+  E[π_c], the mean **across** cohorts. With σ_π ≈ 1.39 the two differ by about a
+  third (0.054 vs 0.072) through Jensen's inequality. Both are now fitted and
+  reported side by side; neither is obviously wrong. Hold the cohort-averaged
+  version loosely, because σ_π rests on 13 cohorts and 18 returning birds and the
+  1997 cohort alone sits at π_c = 0.58 against 0.03–0.18 elsewhere — and since
+  σ_π is shared across eras, that one cohort inflates the gap for the modern
+  cohorts too. **Report the immigration ordering at the conservative end:**
+  immigration exceeds local recruitment with P ≈ 0.67–0.81 depending on the
+  definition, a margin of roughly 1.5:1 to 2.4:1 rather than a settled number.
 
 ### Optional but valuable
 
@@ -271,9 +329,9 @@ Found during the robustness work; all belong in the Methods or Discussion.
 1. **Study area and field methods** — Anchorage wetlands; volunteer survey design
    (3 weekly visits, 32 wetlands); banding and resighting; nest monitoring; tag
    deployment (types, masses, attachment, years).
-2. **Data sources** — counts 2014–2025 (855 records); adult encounter histories
+2. **Data sources** — counts 2014–2026 (935 records); adult encounter histories
    2010–2026 (**212** individuals); productivity 2018–2026 (77 nests); chick
-   cohorts from **two eras** — 139 banded 1995–98 and 133 banded 2018–25.
+   cohorts from **two eras** — 122 banded 1995–99 and 133 banded 2018–25.
 
    The adult total fell 213 → 212 because band 129232054, banded as a chick in
    2023 and recaptured as a breeding adult in 2025, was being counted twice: once
@@ -293,7 +351,7 @@ Found during the robustness work; all belong in the Methods or Discussion.
 
 ### Model at a glance
 
-Transcribed from `scripts/LEYE_IPM.R` on 2026-08-14. Indices: *t* = year (1…T, 2014–2025),
+Transcribed from `scripts/LEYE_IPM.R`, re-checked 2026-10-14. Indices: *t* = year (1…T, 2014–2026),
 *i* = count record, *j* = marked individual, *m* = nest, *w* = survey week, *k* = wetland.
 **If the model changes, this block must be re-transcribed — it is documentation, not code.**
 
@@ -396,9 +454,9 @@ $$
 \sigma_s,\ \sigma_{\text{site}},\ \sigma_{\text{od}},\ \omega
    &\sim \mathrm{Exponential}(1) \\[2pt]
 \phi_{\text{pre}},\ \phi_{\text{post}},\ q &\sim \mathrm{Uniform}(0,\ 1) \\[2pt]
-\pi &\sim \mathrm{Beta}(2.4200,\ 47.2852)
+\pi &\sim \mathrm{Beta}(1.8410,\ 32.5058)
    &&\text{modern-era recruitment, external module} \\[2pt]
-\kappa &\sim \mathrm{Beta}(7.7764,\ 8.2649)
+\kappa &\sim \mathrm{Beta}(7.6338,\ 8.6569)
    &&\text{age-1 fraction, external module}
 \end{aligned}
 $$
@@ -438,10 +496,11 @@ explicitly in Methods rather than left for a reviewer to find:
 4. **What limits inference** — demographic stochasticity; recruitment/immigration
    confounding; relative-scale abundance. Frame the stochasticity result as a
    monitoring-design contribution, not an apology. Be explicit that the
-   recruitment estimate is prior-driven while λ is not: λ holds at 0.963–0.966
-   across informative and vague priors (see *Confounds to disclose*). Lead with
-   that stability — it is what licenses the λ and tLTRE results even though the
-   recruitment/immigration split is not identified.
+   recruitment estimate is prior-driven while λ is not: λ holds at 0.959–0.963
+   across all three prior settings — typical-cohort, cohort-averaged and vague —
+   while the recruitment share moves from 7% to 13.5% (see *Confounds to
+   disclose*). Lead with that stability; it is what licenses the λ and tLTRE
+   results even though the recruitment/immigration split is not identified.
 5. **Conservation implications.**
 
 ---

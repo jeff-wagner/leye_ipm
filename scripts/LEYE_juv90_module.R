@@ -6,7 +6,7 @@
 # main IPM (scripts/LEYE_IPM.R).
 #
 # Two datasets, sharing adult survival and year-specific detection:
-#   (1) CHICKS  : 139 birds banded as chicks 1995-1998 (data/LEYE_juv_EH_1995_2000.csv)
+#   (1) CHICKS  : 122 birds banded as chicks 1995-1999 (data/LEYE_juv_EH_1995_2000.csv)
 #   (2) ADULTS  : 178 contemporaneous adults from the main EH, occasions 1995-2000
 #
 # Why a custom likelihood: a chick first SEEN at age 2 may have recruited at age

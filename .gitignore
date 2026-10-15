@@ -77,3 +77,15 @@ manuscript/*
 *.tmp
 *.bak
 *~
+
+# ---- Bulk reference downloads -------------------------------------------
+# The North American Bird Banding Program group-14 dump is ~220 MB. GitHub
+# hard-rejects any file over 100 MB, so committing it would create a commit
+# that can never be pushed. It is a public bulk download, re-fetchable from
+# the NABBP, and only scripts/LEYE_NABBP_chicks_banded_1990s.R reads it --
+# that script and the small species/age lookups beside it ARE tracked, so the
+# derivation stays reproducible once the dump is downloaded again.
+data/NABBP_2025_grp_14.csv
+
+# R writes this whenever a headless script draws without opening a device.
+Rplots.pdf
