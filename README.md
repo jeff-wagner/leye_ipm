@@ -128,7 +128,7 @@ argument for the tLTRE) rather than by renaming files.
 |---|---|
 | `LEYE_95_26_EH.csv` | Adult encounter history, 391 birds × 32 annual occasions (1995–2026). |
 | `LEYE_95_26_covs.csv` | Individual covariates, **row-aligned with the EH**. |
-| `LEYE_juv_EH_1995_2000.csv` | 1990s chick encounter history, 139 birds × 6 occasions. |
+| `LEYE_juv_EH_1995_2000.csv` | 1990s chick encounter history, 122 birds × 6 occasions (real banding totals, recovered 2026-09-29). |
 | `LEYE_chick_EH_2018_2026.csv` | Modern chick encounter history, 133 birds × 9 occasions, built by `create_chick_eh_2018_2026.R`. |
 
 `LEYE_95_26_EH.csv` and `LEYE_95_26_covs.csv` must stay in **lockstep** — same band
@@ -147,8 +147,8 @@ together with `create_EH_2026.R`; never edit one alone.
 | `leye_90s_chick_survival.xlsx` | 1990s chick resightings plus the real 1996 brood data. |
 | `Modeled_*.csv` | Distance-sampling data. **Not read by any script in this repo.** |
 
-Count data lives in `Arin LEYE R code/data_2025.csv` (855 wetland × week × year
-records; 2014–2025, 32 wetlands, 3 weekly visits). That folder holds the original
+Count data lives in `Arin LEYE R code/data_2026.csv` (935 wetland × week × year
+records; 2014–2026, 32 wetlands, 3 weekly visits). That folder holds the original
 collaborator analysis and is the source of the abundance series.
 
 ---
@@ -157,7 +157,7 @@ collaborator analysis and is the source of the abundance series.
 
 Three data sources share common demographic parameters:
 
-1. **Abundance** — volunteer wetland counts, 2014–2025, as a *relative* index.
+1. **Abundance** — volunteer wetland counts, 2014–2026, as a *relative* index.
 2. **Survival** — adult CJS encounter histories, 2010–2026, with individual covariates
    for sex (F/M/Unknown) and tag type (none/geolocator/GPS).
 3. **Productivity** — chicks per nest, 2018–2026.
@@ -245,7 +245,7 @@ Result, and **this changed when the modern recruitment prior replaced the 1990s 
 informative and vague fits agreed almost exactly (0.107 vs 0.108), so the level was
 safely data-driven. Under the modern prior they differ two-fold, because the count data
 and the modern chick resights **disagree**: the counts want recruitment near 0.105, the
-chick data says 0.049, and the tighter modern prior wins.
+chick data says 0.052, and the tighter modern prior wins.
 
 That disagreement is a finding, not a defect, and it should be reported rather than
 smoothed over. Three readings are possible and the analysis cannot yet separate them:
@@ -275,7 +275,7 @@ has a wide credible interval. Report it as such.
 Because the two trade off, sharpening one moves the other. Replacing the 1990s-derived
 recruitment prior with the modern-era estimate halved recruitment and raised immigration
 to compensate — the share of annual gains from local recruitment fell from **56% to 31%**
-while λ barely moved (0.966 → 0.963). The trajectory is robust; the *attribution* is not,
+while λ barely moved (0.966 → 0.965). The trajectory is robust; the *attribution* is not,
 and it depends on which era the recruitment prior comes from.
 
 **The counts inform recruitment level but not timing.** In fitting, `pi_rec` moves

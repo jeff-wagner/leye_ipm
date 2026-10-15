@@ -6,7 +6,9 @@
 # changed. Supersedes scripts/LEYE_juv90_module.R, which fitted the 1990s alone.
 #
 # DATA
-#   1990s chicks   139 banded 1995-1998, 6 occasions (1995-2000)
+#   1990s chicks   122 banded 1995-1999, 6 occasions (1995-2000). Cohort sizes
+#                  are the real banding totals, recovered 2026-09-29; they were
+#                  simulated for 1997/1998 until then, and 1999 was missing.
 #   1990s adults   178 contemporaneous adults from the main encounter history
 #   modern chicks  133 banded 2018-2025, 9 occasions (2018-2026)
 #

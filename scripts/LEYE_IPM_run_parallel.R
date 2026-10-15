@@ -161,8 +161,10 @@ samples <- as.mcmc.list(chain_list) |>
   lapply(function(x) replace(x, is.na(x), 0)) |>
   as.mcmc.list()
 
-# Stable filename: the Quarto report picks the most recent LEYE_IPM_samples*.rds
-# by default, and a fixed name keeps re-runs from accumulating dated caches.
+# Canonical filename. The Quarto report and the tLTRE script both read exactly
+# this path -- they used to glob LEYE_IPM_samples*.rds and take the newest,
+# which once loaded the wrong posterior and would have rendered cleanly from
+# it. Do not reintroduce dated or suffixed cache names here.
 saveRDS(stamp_ipm_cache(samples), "LEYE_IPM_samples.rds")
 
 ## ---------------------------------------------------------------------------

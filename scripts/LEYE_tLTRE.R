@@ -90,9 +90,23 @@ tltre_load <- function(samples_path = NULL) {
 
 # Year axis, taken from the count data exactly as LEYE_IPM.R defines it, so
 # this script stays consistent without having to source the whole model.
+# The year axis comes from the IPM script, which is its single source of truth.
+#
+# This used to re-read "./Arin LEYE R code/data_2025.csv" directly -- a second
+# copy of the data path. When the counts were extended to 2026 on 2026-10-14 the
+# model moved to T = 13 while this stayed at T = 12, silently dropping the
+# 2025-2026 transition. Nothing failed: the identity check passes on whatever
+# subset it is handed, so the decomposition looked perfect and was a year short.
+# Never re-read the data here; take the axis from the model, or assert against
+# the posterior (see the guard in SECTION 5).
 tltre_years <- function() {
-  dc <- read.csv("./Arin LEYE R code/data_2025.csv")
-  sort(unique(dc$year))
+  if (exists("ipm_years", envir = globalenv(), inherits = FALSE)) {
+    return(get("ipm_years", envir = globalenv()))
+  }
+  e <- new.env()
+  assign("SKIP_RUN", TRUE, envir = e)
+  sys.source("scripts/LEYE_IPM.R", envir = e)
+  get("ipm_years", envir = e)
 }
 
 ## ===========================================================================
@@ -287,6 +301,25 @@ if (!SKIP_TLTRE_RUN) {
   mat <- tltre_load()
   ipm_years <- tltre_years()
   Tt <- length(ipm_years)
+
+  # Guard: the year axis and the posterior must describe the same fit. The IPM
+  # monitors lambda[1..T-1] and N_tot[1..T], so a mismatch means the axis and
+  # the cache disagree about how many years the model covers -- which is how the
+  # 2026 counts went missing from this decomposition without any error.
+  n_lambda <- length(grep("^lambda\\[", colnames(mat)))
+  n_ntot <- length(grep("^N_tot\\[", colnames(mat)))
+  if (n_lambda != Tt - 1 || n_ntot != Tt) {
+    stop(sprintf(
+      paste0(
+        "Year axis and posterior disagree: axis says T = %d (expects %d ",
+        "lambda, %d N_tot) but '%s' has %d lambda and %d N_tot. The cache was ",
+        "fitted over a different number of years than the model now defines -- ",
+        "refit, or point tltre_load() at the matching cache."
+      ),
+      Tt, Tt - 1, Tt, basename(attr(mat, "path")), n_lambda, n_ntot
+    ))
+  }
+
   x <- tltre_series(mat, Tt)
   err <- tltre_check(x)
 

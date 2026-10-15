@@ -1,23 +1,40 @@
 # ========================================================
-# Title: Simulate 1990s LEYE banded chick cohorts
+# Title: Build 1990s LEYE banded chick encounter history
 # Author: Jeff Wagner
-# Date: 2026-08-04
-# Description: This script simulates missing chick banding data from the 1990s period by drawing on available cohort information from 1996.
+# Date: 2026-08-04 (rewritten 2026-09-29)
+# Description: Assembles the 1995-1999 chick cohorts from the real banding
+#   records: the survival sheet holds every chick with a post-banding history,
+#   and each cohort is completed to its true size with never-resighted birds.
 # ========================================================
 
 # ---- Set Up ----
 library(tidyverse)
 
-# Cohort sizes for 1995/1997/1998 are drawn at random (see "Simulate missing
-# brood data" below), as are the sexes of never-resighted birds outside 1996.
-# Without a seed, every run produces different cohort denominators and so
-# different downstream recruitment estimates (psi1/psi2 in LEYE_juv90_module.R
-# scale inversely with them). Seed set here so re-runs are reproducible.
+# Real chicks banded per natal year, recovered from the original banding
+# records on 2026-09-29. These replace the simulated denominators this script
+# used to draw with rpois(4, 0.85 * num_broods96); that branch is gone, and so
+# is the warning that re-running produced a different, equally arbitrary
+# cohort structure. The numbers are now fixed, so the file is reproducible.
 #
-# NOTE: the committed data/LEYE_juv_EH_1995_2000.csv was generated BEFORE this
-# seed was added, so re-running will NOT reproduce that file -- it will produce
-# a different, equally valid draw. Re-running therefore invalidates any
-# recruitment estimate derived from the committed version.
+# 1996 is corroborated independently by the broods_1996 sheet (34 chicks).
+# 1999 is a cohort this file previously omitted altogether.
+#
+# NOTE ON 1997: 11 chicks banded, 8 of them carry a post-banding history and 7
+# were resighted. A 64% local return rate is six to sixteen times every other
+# cohort in either era, and this one cohort therefore dominates the 1990s
+# recruitment signal. 1997 was also a low-effort season for adult marking
+# (21 adults, against 52/48/36/21 in the surrounding years), so the small
+# denominator is real. Treat psi from the 1990s as resting heavily on it.
+CHICKS_BANDED <- c(
+  `1995` = 37,
+  `1996` = 34,
+  `1997` = 11,
+  `1998` = 30,
+  `1999` = 10
+)
+
+# The only randomness left is which real 1996 sexes go to which padded 1996
+# bird; cohort sizes no longer depend on the seed.
 set.seed(20260804)
 
 eh <- readxl::read_xlsx(
@@ -29,119 +46,73 @@ broods96 <- readxl::read_xlsx(
   sheet = "broods_1996"
 )
 
-
-# Summary ----------------------------------------------------------------
-band_years <- unique(eh$`Year banded`)
-resight_years <- as.numeric(colnames(eh[, 5:10]))
-num_broods96 <- length(unique(broods96$`Brood name`))
-chicks_per_brood96 <- broods96 |>
-  group_by(`Brood name`) |>
-  summarise(n_chicks = n())
-
-
-# Simulate missing brood data --------------------------------------------
-broods_per_year <- tibble(Year = band_years) |>
-  mutate(
-    broods = case_when(
-      Year == 1996 ~ num_broods96,
-      .default = rpois(4, 0.85 * num_broods96) # random poisson draw with arbitrary mean of 0.85*broods banded in 1996
-    )
-  )
-
-# Simulate chicks per brood using custom categorical distribution based on proportion of chicks/brood in 1996
-# Define exact probabilities for 1, 2, 3, and 4 (must sum to 1)
-probabilities <- chicks_per_brood96 |>
-  group_by(n_chicks) |>
-  summarize(prop = n() / num_broods96)
-sum(probabilities$prop)
-
-chicks_per_brood <- broods_per_year |>
-  rowwise() |>
-  mutate(
-    chicks = list(
-      if (Year == 1996) {
-        chicks_per_brood96$n_chicks
-      } else {
-        sample(1:4, size = broods, replace = TRUE, prob = probabilities$prop)
-      }
-    )
-  ) |>
-  ungroup()
-
-# Plot
-chicks_per_brood |>
-  select(Year, chicks) |>
-  unnest_longer(chicks, values_to = "n_chicks") |>
-  mutate(brood_id = row_number(), .by = Year) |>
-  ggplot(aes(x = n_chicks, y = factor(Year))) +
-  geom_jitter(aes(color = Year == 1996), height = 0.15, width = 0.1, size = 2) +
-  labs(x = "Chicks per brood", y = "Year", color = "Actual data (1996)") +
-  scale_color_manual(values = c("TRUE" = "#4daf3a", "FALSE" = "#3a71e9"))
-
-
-# Make encounter history for all years --------------------------------------
-tot_chicks_per_year <- chicks_per_brood |>
-  group_by(Year) |>
-  summarize(n_chicks = sum(unlist(chicks)))
-
-resighted_chicks_per_year <- eh |>
-  group_by(`Year banded`) |>
-  summarize(n_chicks = n())
-
-new_chicks_needed <- tot_chicks_per_year$n_chicks -
-  resighted_chicks_per_year$n_chicks
-
-# Add rows for chicks that were banded but never resighted -------------------
-# `1998`:`2000` were read in as character (mixed "0"/"1"/"NA" strings);
-# coerce to numeric so new rows can be bound cleanly
+# `1998`:`2000` come in as character (mixed "0"/"1"/"NA"); coerce so new rows
+# bind cleanly. NA means "not monitored", and is kept -- the downstream module
+# drops a bird whose banding occasion is its last monitored one.
 eh_clean <- eh |>
   mutate(across(`1998`:`2000`, as.numeric))
 
-# One row per never-resighted chick: 0 in all years except a 1 in the
-# band year, since these birds were never seen again
-make_unresighted_rows <- function(year, sex_vec, name_prefix) {
-  n <- length(sex_vec)
-  tibble(
-    Name = paste0(name_prefix, "_", seq_len(n)),
-    `Year banded` = year,
-    Loc = "A",
-    Sex = sex_vec,
-    `1995` = as.numeric(year == 1995),
-    `1996` = as.numeric(year == 1996),
-    `1997` = as.numeric(year == 1997),
-    `1998` = as.numeric(year == 1998),
-    `1999` = 0,
-    `2000` = 0
+band_years <- as.integer(names(CHICKS_BANDED))
+occasions <- c(1995, 1996, 1997, 1998, 1999, 2000)
+
+# How many rows each cohort already has, and how many must be added.
+have <- eh_clean |>
+  count(`Year banded`, name = "n_records") |>
+  complete(`Year banded` = band_years, fill = list(n_records = 0L))
+need <- CHICKS_BANDED[as.character(have$`Year banded`)] - have$n_records
+names(need) <- have$`Year banded`
+
+if (any(need < 0)) {
+  stop(
+    "More chick records than chicks banded in: ",
+    paste(names(need)[need < 0], collapse = ", "),
+    ". Either the banding totals or the survival sheet is wrong."
   )
 }
 
-# Random per-bird sex draws, roughly 50/50 on average
-random_sex <- function(n) sample(c("F", "M"), size = n, replace = TRUE)
+# One row per banded-but-never-resighted chick: a 1 in the natal year, 0
+# everywhere else, because these birds were never seen again.
+make_unresighted_rows <- function(year, sex_vec, name_prefix) {
+  n <- length(sex_vec)
+  if (n == 0) {
+    return(NULL)
+  }
+  out <- tibble(
+    Name = paste0(name_prefix, "_", seq_len(n)),
+    `Year banded` = year,
+    Loc = "A",
+    Sex = sex_vec
+  )
+  for (y in occasions) out[[as.character(y)]] <- as.numeric(year == y)
+  out
+}
 
-# 1996 chicks: draw sex from the real broods96 cohort (33 of the 34
-# recorded chicks; 1 chick from this cohort is already in eh)
+# 1996 padding takes real sexes from the brood records; other cohorts have no
+# sex information for birds never seen again, so they are recorded as unknown
+# rather than drawn at random.
 sex_1996 <- broods96 |>
-  slice_sample(n = new_chicks_needed[band_years == 1996]) |>
+  slice_sample(n = need[["1996"]]) |>
   pull(DNA)
 
 new_rows <- bind_rows(
-  make_unresighted_rows(
-    1995,
-    random_sex(new_chicks_needed[band_years == 1995]),
-    "Unresighted_1995"
-  ),
+  make_unresighted_rows(1995, rep("U", need[["1995"]]), "Unresighted_1995"),
   make_unresighted_rows(1996, sex_1996, "Unresighted_1996"),
-  make_unresighted_rows(
-    1997,
-    random_sex(new_chicks_needed[band_years == 1997]),
-    "Unresighted_1997"
-  ),
-  make_unresighted_rows(
-    1998,
-    random_sex(new_chicks_needed[band_years == 1998]),
-    "Unresighted_1998"
-  )
+  make_unresighted_rows(1997, rep("U", need[["1997"]]), "Unresighted_1997"),
+  make_unresighted_rows(1998, rep("U", need[["1998"]]), "Unresighted_1998"),
+  make_unresighted_rows(1999, rep("U", need[["1999"]]), "Unresighted_1999")
 )
 
 eh_complete <- bind_rows(eh_clean, new_rows)
+
+# Guard: the file must reproduce the banding totals exactly, or every
+# recruitment estimate downstream is scaled wrong.
+got <- table(eh_complete$`Year banded`)[as.character(band_years)]
+stopifnot(identical(as.integer(got), as.integer(CHICKS_BANDED)))
+
 write_csv(eh_complete, "data/LEYE_juv_EH_1995_2000.csv")
+
+cat(sprintf(
+  "Wrote %d chicks across %d cohorts: %s\n",
+  nrow(eh_complete), length(band_years),
+  paste(names(CHICKS_BANDED), CHICKS_BANDED, sep = "=", collapse = ", ")
+))
