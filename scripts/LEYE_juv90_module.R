@@ -9,6 +9,12 @@
 #   (1) CHICKS  : 122 birds banded as chicks 1995-1999 (data/LEYE_juv_EH_1995_2000.csv)
 #   (2) ADULTS  : 178 contemporaneous adults from the main EH, occasions 1995-2000
 #
+# The two share detection because birds in both groups carried scope-read colour
+# marks -- confirmed from the field records on 2026-11-04. Had the chicks been
+# metal-band-only their true detection would have been lower and psi
+# correspondingly underestimated, so the assumption belongs in Methods, not just
+# in this comment.
+#
 # Why a custom likelihood: a chick first SEEN at age 2 may have recruited at age
 # 1 and gone undetected. Raw return rates confound recruitment timing with
 # detection. Here recruitment age is a latent mixture, marginalised analytically:

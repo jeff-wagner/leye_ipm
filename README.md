@@ -82,17 +82,20 @@ figures.
 |---|---|
 | `LEYE_IPM.R` | **The main model.** Data prep, NIMBLE model, fit, summaries and figures. |
 | `LEYE_IPM_run_parallel.R` | Runs the IPM with one MCMC chain per core. Sources `LEYE_IPM.R` with `SKIP_RUN <- TRUE` so only the model objects are defined. |
-| `LEYE_IPM_sensitivity.R` | Refits the IPM with **only** the recruitment hyperparameters changed, so companion fits stay comparable to the main one by construction. Settings: `cohortmean`, `drop97`, `vague`. Writes to deliberately non-canonical filenames. |
+| `LEYE_IPM_sensitivity.R` | Refits the IPM with **one** thing changed, so companion fits stay comparable to the main one by construction. Recruitment-prior settings: `cohortmean`, `drop97`, `vague`. Count-stream settings: `full`, `balanced9` (the Anchorage bowl is the main model, not a setting). `dryrun` validates every setting's indexing without fitting. Writes to deliberately non-canonical filenames. |
+| `compare_count_subsets.R` | Compares the main fit with the `full` and `balanced9` count-stream companions — λ, trajectory, vital rates, convergence — and checks whether `site_re` tracks observed wetland richness or is shrunk toward the mean. |
 | `LEYE_recruitment_two_era.R` | **Supplies the IPM's recruitment priors.** Fits 1990s and modern chick cohorts jointly with shared detection, and estimates the change between eras. |
 | `LEYE_recruitment_drop_cohort.R` | Leave-one-cohort-out sensitivity on the two-era recruitment fit. Inherits priors, detection, adult survival and both likelihoods from `LEYE_recruitment_two_era.R`; only the dropped cohorts' chicks and the cohort index change. Defaults to 1997, the cohort that returned 7 of 11 chicks and sets the 1990s baseline. |
 | `LEYE_juv90_module.R` | The earlier 1990s-only recruitment module. Superseded for prior generation, but retained: it holds the validated `dChick`/`dAdult` likelihoods that the two-era model sources. |
 | `create_chick_eh_2018_2026.R` | Cleans the modern chick resights into an analysis-ready encounter history. |
 | `LEYE_tLTRE.R` | Transient LTRE. Reads a cached posterior; decomposes mean λ across pathways and Var(λ) across drivers, separating demographic stochasticity. |
-| `LEYE_tag_effects_CJS.R` | Standalone CJS robustness check on the tag effects, independent of the IPM. Tests transience and time-since-tagging confounds. |
+| `LEYE_tag_effects_CJS.R` | Standalone CJS robustness check on the tag effects, independent of the IPM. Tests transience and time-since-tagging confounds, and prints the exposure, sex, banding-era and mass-at-banding comparisons the manuscript quotes as confounds. Set `SKIP_TAG_RUN <- TRUE` to reprint every number from the cache without a twenty-minute refit. |
 | `fig_era_recruitment.R` | Builds the era-comparison figure (F7/F7b) from the two-era posterior: modeled recruitment per era with individual cohorts, and the posterior of the modern/1990s ratio. Emits deck and transparent talk variants, PNG and PDF, from one draw. |
+| `fig_study_area.R` | Builds the study-area figure (F1): upper Cook Inlet with all 32 volunteer survey wetlands, an Anchorage-bowl enlargement with wetland IDs, and an Alaska locator. Also writes the numbered site key. |
+| `make_gis_basemap.R` | One-off: clips the GSHHG full-resolution shoreline to the study extent and caches it as `data/gis/cook_inlet_basemap.gpkg`, so F1 redraws offline. Only needed if the extent changes. |
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
 | `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history from the real banding totals. Birds never resighted after banding are reconstructed rows — **see the caveat below.** |
-| `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM. |
+| `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM — and note they fit **all 32** wetlands, where the IPM now fits the 27 in the Anchorage bowl, so their trends are not on the same spatial footprint as λ. |
 
 ### `reports/` — collaborator-facing output
 
@@ -116,6 +119,8 @@ figures.
 | `LEYE_IPM_samples_cohortmean.rds` | Companion fit with `pi_rec` centred on the cohort-averaged modern recruitment. |
 | `LEYE_IPM_samples_drop1997.rds` | Companion fit with `pi_rec` and `kappa` re-derived from the two-era fit with 1997 excluded. |
 | `LEYE_recruitment_two_era_drop1997.rds` | The two-era recruitment posterior with 1997 removed. Supplies the prior above, and the sensitivity overlay in the era figure. |
+| `LEYE_IPM_samples_full.rds` | Count-stream companion with all 32 wetlands — the wider-area sensitivity, i.e. the count stream as it was before the main model was restricted to the Anchorage bowl. |
+| `LEYE_IPM_samples_balanced9.rds` | Counts restricted to the 9 wetlands surveyed in all 13 years, so panel composition is constant. Not nested in the main fit: two of the nine are outside the bowl. |
 | `LEYE_IPM_samples_omega_timevarying.rds` | Archived evidence for the rejected time-varying immigration test. |
 | `LEYE_tLTRE_results.rds`, `LEYE_tag_effects_CJS.rds` | Outputs of the corresponding scripts. |
 
@@ -153,9 +158,23 @@ together with `create_EH_2026.R`; never edit one alone.
 | `leye_90s_chick_survival.xlsx` | 1990s chick resightings plus the real 1996 brood data. |
 | `Modeled_*.csv` | Distance-sampling data. **Not read by any script in this repo.** |
 
+**Spatial:**
+
+| File | Contents |
+|---|---|
+| `gis/cook_inlet_basemap.gpkg` | Shoreline, lakes and rivers of upper Cook Inlet, clipped from GSHHG full resolution by `make_gis_basemap.R` (180 KB). Cached so F1 redraws without the 142 MB source archive or an internet connection. Cite Wessel & Smith (1996). |
+| `bnb_sites.csv` | The 32 survey wetlands with coordinates, mirrored from `Arin LEYE R code/BnB site metadata.xlsx` on every run of `fig_study_area.R` and checked against it when both are present. |
+
 Count data lives in `Arin LEYE R code/data_2026.csv` (935 wetland × week × year
-records; 2014–2026, 32 wetlands, 3 weekly visits). That folder holds the original
-collaborator analysis and is the source of the abundance series.
+records; 2014–2026, 32 wetlands, 3 weekly visits), and the wetland coordinates in
+`BnB site metadata.xlsx` beside it. That folder holds the original collaborator
+analysis and is the source of the abundance series.
+
+**The IPM fits 780 of those 935 records, over 27 of the 32 wetlands.** Since
+2026-11-04 the count stream is restricted to the Anchorage bowl so that it covers the
+same ground as the mark–resight and nest data; the five dropped wetlands lie 37–67 km
+out. The list and the reasoning are at the top of `LEYE_IPM.R`, and the wider-area fit
+is kept as a sensitivity. See the caveat below for what the restriction does to λ.
 
 ---
 
@@ -278,8 +297,8 @@ whole discrete `N_ad` trajectory to move together.
 
 **There are two averages of λ, and only one is the growth rate.** Use the **geometric**
 mean across years, `exp(rowMeans(log(lambda)))` within each draw: it equals
-(`N_tot[T]`/`N_tot[1]`)^(1/(T−1)) exactly, and currently gives 0.939 (0.897–0.982),
-P(λ<1) = 0.997. The **arithmetic** mean is about 0.02 higher (0.959) because of
+(`N_tot[T]`/`N_tot[1]`)^(1/(T−1)) exactly, and currently gives 0.930 (0.884–0.977),
+P(λ<1) = 0.997. The **arithmetic** mean is about 0.023 higher (0.953) because of
 year-to-year variation in λ, which compounds to a 14-point difference over twelve years,
 so it must never be quoted as a growth rate — it was, until 2026-11-03. It is correct in
 exactly one place: `tltre_level()`, where λ = survival + recruitment + immigration holds
@@ -349,6 +368,17 @@ What this does and does not limit:
   real sexes taken from the brood records, but *which* reconstructed row receives which
   value is arbitrary; every other cohort is recorded as unknown. No script in this repo
   uses sex as a covariate.
+- **Shared detection between 1990s chicks and adults is confirmed, not inferred.** The
+  juvenile module fits one detection process across chicks and the 178 contemporaneous
+  adults (`scripts/LEYE_recruitment_two_era.R`), which is what turns five modern
+  resights out of 133 from a bound into an estimate. That is only legitimate if both
+  groups were read the same way. Until 2026-11-04 the justification was circumstantial —
+  nicknames like "Firehouse Blue" look like colour-mark combinations — and the
+  alternative, metal bands only, would have meant lower true chick detection and an
+  underestimated `psi`. **J. Wagner confirmed from the field records on 2026-11-04 that
+  the 1990s chicks did carry colour marks.** The assumption stands as written, so
+  nothing was refitted; what changed is that it no longer rests on an inference from
+  birds' nicknames.
 
 The remaining limitation on the 1990s half of the era comparison is no longer the
 denominators but their **concentration**: the 1997 cohort is 11 chicks with 7 returning,
@@ -358,10 +388,25 @@ leave-one-cohort-out refit that quantifies it.
 
 ### Other open items
 
-- **Detection is shared between 1990s chicks and adults** in the juvenile module. Names
-  like "Firehouse Blue" imply chicks carried colour marks like the adults, which
-  justifies this. If they were metal-band-only, their true detection was lower and `psi`
-  is underestimated.
+- **The three data streams now cover the same ground — this was a deliberate change.**
+  The volunteer survey covers 32 wetlands spanning 67 km, but every marked bird and
+  every monitored nest comes from the Anchorage bowl. Until 2026-11-04 the IPM fitted
+  all 32, so λ described a wider population than the rates meant to explain it. The
+  count stream is now restricted to the 27 bowl wetlands (`IPM_COUNT_WETLANDS` in
+  `LEYE_IPM.R`), dropping both Palmer Hay Flats accesses, Eklutna, Big Lake and Lynn
+  Fuller's Ponds — 37–67 km out, 22.6% of all birds counted on 16.6% of surveys.
+  **This was not a way of removing an inconvenient signal:** the restriction makes the
+  decline *steeper*, λ 0.939 → 0.930, with P(λ<1) = 0.997 either way. The wider-area
+  fit is retained as the `full` sensitivity.
+- **The survey panel is unstable, and that was tested too.** It grew from 13 wetlands
+  in 2014 to 32 by 2021, only 9 were surveyed throughout, and the ones added late are
+  the rich ones (correlation between a site's mean count and its mean survey year,
+  +0.50). The site-level random effect handles it: `site_re` tracks observed richness
+  with r = 0.98 and slope 0.83 across the 29 wetlands with any detection, so panel
+  growth is not leaking abundance into the trend. A nine-wetland balanced panel
+  (`balanced9`) flattens λ to 0.950 with the interval crossing 1 — but on a third of
+  the data, with a 52% wider interval, so it bounds how much the claim leans on panel
+  size rather than contradicting it.
 - **Immigration is constant by design, and this was tested.** A time-varying `omega[t]`
   (year random effect) was fitted and rejected: `sd_omega`'s posterior barely moved off
   its prior, annual rates spanned only 1.27×, and in the tLTRE the driver-explained share

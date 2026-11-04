@@ -16,9 +16,10 @@
 # Recruitment and detection are confounded in chick data alone: only their
 # product is identified, so 5 modern resights out of 133 is consistent with
 # anything from ~5% to ~18% recruitment depending on detection. Birds in BOTH
-# eras carried colour marks read by scope, so detection is modeled as shared,
-# and the 178 contemporaneous 1990s adults pin it. That is what turns the
-# modern chick data from a bound into an estimate.
+# eras carried colour marks read by scope -- confirmed from the field records
+# on 2026-11-04, having until then been inferred from the 1990s birds' nicknames
+# -- so detection is modeled as shared, and the 178 contemporaneous 1990s adults
+# pin it. That is what turns the modern chick data from a bound into an estimate.
 #
 #   logit(p[t]) = mu_p + eps_p[t]        one detection process, all years
 #

@@ -16,8 +16,8 @@
 #
 # WHY THESE TWO CONFOUNDS
 #
-# Transience: untagged birds carry a much larger share of first-intervals
-# (25.2%) than geolocator (9.0%) or GPS (14.0%) birds, because tagged cohorts
+# Transience: untagged birds carry about twice the share of first-intervals
+# (16.6%) that geolocator birds do (8.4%; GPS 13.8%), because tagged cohorts
 # were banded in narrow windows and followed for longer. If survival dips in
 # the first interval after capture, that biases the UNTAGGED class downward and
 # makes the tag effect look SMALLER than it is. M1 tests it.
@@ -30,6 +30,13 @@
 # stopped carrying tags before the study ended. Without per-bird recovery dates
 # this is time-since-BANDING, not time-carrying. It is an attenuated proxy --
 # a real duration effect would be underestimated, not manufactured.
+#
+# ALSO REPORTED (Section 1B, no model fitting): the exposure imbalance that
+# motivates M1, sex composition and banding-era overlap by tag class, and the
+# mass-at-banding comparison. Those numbers appear in the manuscript as
+# confounds to disclose, and were previously computed at the console with no
+# record -- so when the encounter history changed they could not be re-derived.
+# They are now printed from the same objects the models are fitted to.
 # =============================================================================
 
 library(nimble)
@@ -76,6 +83,90 @@ cat(sprintf(
 ))
 cat("tag:", paste(c("untagged", "geo", "GPS"), table(tag), sep = "=", collapse = "  "), "\n")
 cat("sex:", paste(c("F", "M", "Unk"), table(sex), sep = "=", collapse = "  "), "\n\n")
+
+## ===========================================================================
+## SECTION 1B -- EXPOSURE AND COVARIATE CONFOUNDS (no model fitting)
+## ===========================================================================
+# Every tag-related number the manuscript quotes outside the MCMC used to be
+# computed by hand at the console, which is why the morphometric comparison had
+# no script and could not be re-derived when the encounter history changed.
+# These are printed from the same objects the models are fitted to, so the
+# analysis set is identical by construction.
+TAGLAB <- c("untagged", "geolocator", "GPS")
+
+# Exposure: share of each tag class's intervals that are FIRST intervals after
+# banding. This is the imbalance that motivates M1 -- if survival differs in the
+# first interval, the class carrying more of them is affected most.
+#
+# TWO denominators, because the answer depends on which one and the manuscript
+# needs the defensible one. "Monitored" counts every interval from banding to
+# the end of the study: that is what the marginalised likelihood actually uses,
+# since intervals after the last detection still contribute through chi. "To
+# last detection" counts only intervals up to the final resighting. The second
+# is the more intuitive reading of "exposure" and it REVERSES the ordering --
+# GPS birds, being resighted least, have the largest first-interval share of it.
+# The transience argument depends on the first: under the likelihood-relevant
+# denominator the untagged class carries about twice the first-interval share of
+# the geolocator class, which is the imbalance M1 controls for.
+cat("--- exposure (first-interval share, two denominators) ---\n")
+last_seen <- apply(M == 1, 1, function(r) max(which(r)))
+for (g in 1:3) {
+  i <- which(tag == g)
+  monit <- sum(nocc - f[i]) # f .. nocc-1, every interval in the likelihood
+  tolast <- sum(pmax(last_seen[i] - f[i], 0)) + length(i) # f .. last, min 1
+  cat(sprintf(
+    "  %-11s n=%3d  first=%3d | monitored=%4d (%.1f%%)  to-last-detection=%4d (%.1f%%)\n",
+    TAGLAB[g], length(i), length(i), monit, 100 * length(i) / monit,
+    tolast, 100 * length(i) / tolast
+  ))
+}
+
+# Sex composition. Males survive better, so a female-skewed tag class is biased
+# DOWNWARD; the sex covariate is in the model for this reason.
+cat("\n--- sex composition by tag class (% of class) ---\n")
+sx <- round(100 * prop.table(table(TAGLAB[tag], c("F", "M", "Unk")[sex]), 1), 1)
+print(sx)
+
+# Banding-era overlap. Tag type is largely confounded with period; what keeps the
+# contrast from being purely across eras is the untagged birds banded in the same
+# window as the GPS birds.
+yb <- cov$yr_banded
+cat("\n--- banding years by tag class ---\n")
+for (g in 1:3) {
+  i <- which(tag == g)
+  cat(sprintf(
+    "  %-11s %d-%d (median %d)\n", TAGLAB[g],
+    min(yb[i], na.rm = TRUE), max(yb[i], na.rm = TRUE),
+    median(yb[i], na.rm = TRUE)
+  ))
+}
+gw <- range(yb[tag == 3], na.rm = TRUE)
+cat(sprintf(
+  "  untagged banded inside the GPS window (%d-%d): %d birds\n",
+  gw[1], gw[2], sum(tag == 1 & yb >= gw[1] & yb <= gw[2], na.rm = TRUE)
+))
+
+# Selection bias on body mass at banding. If tagged birds were a heavier --
+# i.e. better-conditioned -- subset, the tag effect is CONSERVATIVE, because
+# condition should push their survival the other way.
+cat("\n--- mass at banding (g), untagged as reference ---\n")
+md <- data.frame(mass = cov$init_mass, grp = factor(TAGLAB[tag], levels = TAGLAB))
+md <- md[is.finite(md$mass), ]
+for (g in TAGLAB) {
+  x <- md$mass[md$grp == g]
+  cat(sprintf("  %-11s n=%3d  mean=%.1f  sd=%.1f\n", g, length(x), mean(x), sd(x)))
+}
+fitm <- lm(mass ~ grp, data = md)
+ci <- confint(fitm)
+sm <- summary(fitm)$coefficients
+for (g in TAGLAB[-1]) {
+  nm <- paste0("grp", g)
+  cat(sprintf(
+    "  %-11s vs untagged: %+.2f g (95%% CI %.2f to %.2f), p = %s\n",
+    g, sm[nm, 1], ci[nm, 1], ci[nm, 2], format.pval(sm[nm, 4], digits = 3, eps = 1e-4)
+  ))
+}
+cat("\n")
 
 ## ===========================================================================
 ## SECTION 2 -- MARGINALISED CJS LIKELIHOOD
@@ -222,38 +313,71 @@ fit_one <- function(label, TRANS, DUR) {
   list(samples = out$samples, waic = out$WAIC$WAIC, label = label)
 }
 
+## ===========================================================================
+## SECTION 4 -- FIT (or reload) AND REPORT
+## ===========================================================================
+# The reporting runs off the cache as readily as off a fresh fit:
+#     SKIP_TAG_RUN <- TRUE; source("scripts/LEYE_tag_effects_CJS.R")
+# reprints every number below from LEYE_tag_effects_CJS.rds in seconds. The
+# three models take about twenty minutes to refit, and a quoted value that can
+# only be re-derived by paying that is a value nobody re-derives -- which is
+# how the previous set came to be quoted for three months against an encounter
+# history that had since been corrected.
+OUT <- "LEYE_tag_effects_CJS.rds"
 if (!exists("SKIP_TAG_RUN")) SKIP_TAG_RUN <- FALSE
-if (!SKIP_TAG_RUN) {
+
+if (SKIP_TAG_RUN) {
+  if (!file.exists(OUT)) stop("SKIP_TAG_RUN is set but ", OUT, " does not exist.")
+  fits <- readRDS(OUT)
+  m0 <- fits$m0
+  m1 <- fits$m1
+  m2 <- fits$m2
+  cat(sprintf("Reporting from cached %s (fitted %s)\n", OUT,
+              format(file.mtime(OUT), "%Y-%m-%d")))
+} else {
   m0 <- fit_one("M0  sex + tag", FALSE, FALSE)
   m1 <- fit_one("M1  + transience", TRUE, FALSE)
   m2 <- fit_one("M2  + transience + tag x duration", TRUE, TRUE)
+  saveRDS(list(m0 = m0, m1 = m1, m2 = m2), OUT)
+  cat("\nWrote: ", OUT, "\n")
+}
 
-  orq <- function(s, cn) {
-    x <- as.matrix(s)[, cn]
-    sprintf(
-      "%.2f (%.2f-%.2f) P(<1)=%.3f", exp(mean(x)),
-      exp(quantile(x, .025)), exp(quantile(x, .975)), mean(x < 0)
-    )
-  }
-  cat("\n=====================================================================\n")
-  cat("TAG EFFECTS ON SURVIVAL (odds ratios vs untagged)\n")
-  cat("=====================================================================\n")
-  for (m in list(m0, m1, m2)) {
-    cat(sprintf(
-      "%-34s  geo %s | GPS %s\n", m$label,
-      orq(m$samples, "bTag[2]"), orq(m$samples, "bTag[3]")
-    ))
-  }
-  cat("\nWAIC:", sprintf("%s=%.1f", c("M0", "M1", "M2"), c(m0$waic, m1$waic, m2$waic)), "\n")
+orq <- function(s, cn) {
+  x <- as.matrix(s)[, cn]
+  sprintf(
+    "%.2f (%.2f-%.2f) P(<1)=%.3f", exp(mean(x)),
+    exp(quantile(x, .025)), exp(quantile(x, .975)), mean(x < 0)
+  )
+}
+cat("\n=====================================================================\n")
+cat("TAG EFFECTS ON SURVIVAL (odds ratios vs untagged)\n")
+cat("=====================================================================\n")
+for (m in list(m0, m1, m2)) {
+  cat(sprintf(
+    "%-34s  geo %s | GPS %s\n", m$label,
+    orq(m$samples, "bTag[2]"), orq(m$samples, "bTag[3]")
+  ))
+}
+cat("\nWAIC:", sprintf("%s=%.1f", c("M0", "M1", "M2"), c(m0$waic, m1$waic, m2$waic)), "\n")
 
-  q <- function(s, cn) {
-    x <- as.matrix(s)[, cn]
-    sprintf("%.3f (%.3f, %.3f)", mean(x), quantile(x, .025), quantile(x, .975))
-  }
-  cat("\ntransience (logit offset, first interval): ", q(m1$samples, "bTrans"), "\n")
-  cat("duration slope (per yr since banding)    : ", q(m2$samples, "bDur"), "\n")
-  cat("  P(duration slope < 0):", round(mean(as.matrix(m2$samples)[, "bDur"] < 0), 3), "\n")
+q <- function(s, cn) {
+  x <- as.matrix(s)[, cn]
+  sprintf("%.3f (%.3f, %.3f)", mean(x), quantile(x, .025), quantile(x, .975))
+}
+cat("\ntransience (logit offset, first interval): ", q(m1$samples, "bTrans"), "\n")
+cat("  P(transience offset > 0):", round(mean(as.matrix(m1$samples)[, "bTrans"] > 0), 3), "\n")
+cat("duration slope (per yr since banding)    : ", q(m2$samples, "bDur"), "\n")
+cat("  P(duration slope < 0):", round(mean(as.matrix(m2$samples)[, "bDur"] < 0), 3), "\n")
 
-  saveRDS(list(m0 = m0, m1 = m1, m2 = m2), "LEYE_tag_effects_CJS.rds")
-  cat("\nWrote: LEYE_tag_effects_CJS.rds\n")
+# Convergence, on the parameters this script actually quotes. Reported rather
+# than assumed: these are three-chain fits of 20000 post-burnin draws apiece,
+# and the main IPM has already produced one companion whose Rhat sat at 1.19
+# while every number drawn from it was tabulated as fact.
+cat("\n--- Rhat on the quantities reported above ---\n")
+for (m in list(m0, m1, m2)) {
+  p <- intersect(c("bTag[2]", "bTag[3]", "bSex[2]", "bSex[3]", "bTrans", "bDur",
+                   "mu_phi", "sd_phi", "lp"), colnames(m$samples[[1]]))
+  r <- gelman.diag(m$samples[, p], multivariate = FALSE)$psrf[, 1]
+  cat(sprintf("  %-34s max Rhat %.3f (%s)%s\n", m$label, max(r),
+              names(which.max(r)), if (max(r) > 1.05) "   <- CHECK" else ""))
 }

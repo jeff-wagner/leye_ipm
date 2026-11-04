@@ -51,19 +51,70 @@ set.seed(20260521)
 # previous file, so this extends the series rather than revising it. Everything
 # downstream keys off count_years rather than hard-coded years, so T, the CJS
 # overflow slots and the fecundity mapping all follow automatically -- see 1d.
-dc <- read.csv("./Arin LEYE R code/data_2026.csv", fileEncoding = "UTF-8-BOM")
-dc$yr_idx <- as.integer(factor(dc$year))
+dc_all <- read.csv("./Arin LEYE R code/data_2026.csv", fileEncoding = "UTF-8-BOM")
+
+# ---- Spatial scope of the count stream ----------------------------------
+# THE MODEL IS FITTED TO THE ANCHORAGE BOWL, not to all 32 surveyed wetlands.
+#
+# The volunteer survey covers 32 wetlands spanning 67 km, but every marked bird
+# and every monitored nest comes from the Anchorage bowl. Letting the counts
+# reach 67 km out while survival and productivity reach 25 km means lambda
+# describes a different population from the rates that are supposed to explain
+# it. Restricting the counts puts all three streams on the same ground, which
+# is what makes the decomposition in scripts/LEYE_tLTRE.R mean anything.
+#
+# The five wetlands dropped -- both Palmer Hay Flats accesses, Eklutna Power
+# Plant Tailrace, Big Lake-Jordan Lake, Lynn Fuller's Ponds -- lie 37-67 km from
+# Anchorage and carried 22.6% of all birds counted on 16.6% of the surveys.
+# Dropping them is not a way of removing an inconvenient signal: it makes the
+# decline STEEPER, lambda 0.939 -> 0.930, with P(lambda < 1) = 0.997 either way.
+# The wider-area fit is kept as a sensitivity (`full` in
+# scripts/LEYE_IPM_sensitivity.R) and compared by
+# scripts/compare_count_subsets.R.
+#
+# To fit the wider area instead, set this to sort(unique(dc_all$wetland)) --
+# but then say so wherever lambda is quoted, because it stops being a statement
+# about the population the demographic data describe.
+#
+# Wetland IDs are those of "Arin LEYE R code/BnB site metadata.xlsx"; names and
+# coordinates are mirrored in data/bnb_sites.csv.
+IPM_DISTANT_WETLANDS <- c(3L, 10L, 18L, 22L, 23L)
+IPM_COUNT_WETLANDS <- setdiff(sort(unique(dc_all$wetland)), IPM_DISTANT_WETLANDS)
+in_scope <- dc_all$wetland %in% IPM_COUNT_WETLANDS
+
+# Effort covariates are centred on ALL 935 records, then subsetted -- not
+# re-centred on the 780 kept. Centring is a choice of reference point, and
+# fixing it once means the main fit and every count-stream companion sit on one
+# scale instead of each defining its own. It changes nothing that is compared:
+# the slopes b_et and b_ed are invariant to it, and lambda is invariant to all
+# of it. Only logB0's intercept shifts, and logB0 is never compared across fits
+# (it is weakly identified against the population level -- see the sensitivity
+# script's chain-length note).
+log_et_all <- log1p(dc_all$et)
+log_et_all <- log_et_all - mean(log_et_all)
+log_ed_all <- log1p(dc_all$ed)
+log_ed_all <- log_ed_all - mean(log_ed_all)
+
+dc <- dc_all[in_scope, ]
+log_et <- log_et_all[in_scope]
+log_ed <- log_ed_all[in_scope]
+
+dc$yr_idx <- match(dc$year, sort(unique(dc_all$year)))
 dc$wk_idx <- as.integer(factor(dc$week))
 dc$wet_idx <- as.integer(factor(dc$wetland))
-count_years <- sort(unique(dc$year)) # 2014..2026
+count_years <- sort(unique(dc_all$year)) # 2014..2026
 nYearC <- length(count_years)
 nWeek <- length(unique(dc$wk_idx))
 nWet <- length(unique(dc$wet_idx))
 nCount <- nrow(dc)
-log_et <- log1p(dc$et)
-log_et <- log_et - mean(log_et)
-log_ed <- log1p(dc$ed)
-log_ed <- log_ed - mean(log_ed)
+
+# The restriction must not cost a year or a week: `yr_idx` indexes N_tot and
+# `wk_idx` indexes weekFE, so a gap would silently renumber them.
+stopifnot(
+  setequal(dc$yr_idx, seq_len(nYearC)),
+  setequal(dc$wk_idx, seq_len(nWeek)),
+  nWet == length(IPM_COUNT_WETLANDS)
+)
 
 # ---- 1b. Survival (CJS) + covariates, modern era 2010-2026 -----------------
 prep_cjs_cov <- function(
@@ -575,6 +626,15 @@ monitors <- c(
   "logB0",
   "sd_od",
   "sd_site",
+  # The per-wetland level offsets themselves, not just their spread. Without
+  # them there is no way to ask whether a site's fitted level tracks its
+  # observed richness, and that matters here: the survey panel GREW from 13
+  # wetlands in 2014 to 32 by 2021, and the wetlands added late are the rich
+  # ones (correlation between a site's mean count and its mean survey year,
+  # +0.50). A site_re shrunk toward the mean would push the surplus into
+  # N_tot for the years that site was surveyed -- late years -- and flatter
+  # the trend. 32 extra columns is a cheap price for being able to check.
+  "site_re",
   "FT_count_obs",
   "FT_count_rep",
   "FT_prod_obs",
@@ -628,8 +688,14 @@ ipm_provenance <- function(code = ipmCode, consts = constants, dat = data) {
 # use them, and the report prints that stamp as fact. The `structural`
 # fingerprint is unaffected either way -- it excludes the prior keys by design --
 # so a wrong stamp here still reports "ok" and goes unnoticed.
-stamp_ipm_cache <- function(samples, consts = constants) {
-  attr(samples, "ipm_provenance") <- ipm_provenance(consts = consts)
+#
+# `dat` is here for the same reason one step on. The count-subset companions
+# (`full`, `balanced9` in LEYE_IPM_sensitivity.R) change the DATA, not just the
+# constants, and a stamp that defaults to the global `data` would record the
+# full 935-record count series against a fit that used 780 or 333 of them --
+# the identical failure, one argument along.
+stamp_ipm_cache <- function(samples, consts = constants, dat = data) {
+  attr(samples, "ipm_provenance") <- ipm_provenance(consts = consts, dat = dat)
   samples
 }
 
