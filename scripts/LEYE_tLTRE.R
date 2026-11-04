@@ -185,6 +185,12 @@ tltre_level <- function(x) {
     Recruitment = rowMeans(x$rec_pc),
     Immigration = rowMeans(x$imm_pc)
   )
+  # ARITHMETIC mean, and it must stay arithmetic. Identity (A) holds year by
+  # year, and averaging it across years preserves it only for the arithmetic
+  # mean -- so this is the denominator that makes the three pathway shares sum
+  # to 100%. It is NOT the population growth rate: that is the GEOMETRIC mean
+  # across years, which is about 0.02 lower here and is what the report quotes
+  # as lambda. Do not "fix" this one to match it.
   lam <- rowMeans(x$lambda)
   out <- t(vapply(comp, function(v) {
     c(

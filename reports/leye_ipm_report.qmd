@@ -252,7 +252,7 @@ age-1 birds from breeding adults. The full formulation follows.
 
 ## Life cycle and data sources
 
-![Life cycle of the modelled population. Boxes are states, arrows are the demographic rates that move birds between them, and the colours identify which data source informs each rate. `psi1` and `psi2` are composite survive-and-return-locally probabilities, not annual survival: a bird that survives but settles elsewhere is not a local recruit.](../manuscript/figures/life_cycle.svg){#fig-lifecycle}
+![Life cycle of the modeled population. Boxes are states, arrows are the demographic rates that move birds between them, and the colours identify which data source informs each rate. `psi1` and `psi2` are composite survive-and-return-locally probabilities, not annual survival: a bird that survives but settles elsewhere is not a local recruit.](../manuscript/figures/life_cycle.svg){#fig-lifecycle}
 
 ## Model graph
 
@@ -383,9 +383,30 @@ rather than a second copy of the model.
 #| label: headline
 #| echo: false
 
-lam <- rowMeans(mat[, paste0("lambda[", 1:(T - 1), "]")])
-geolam <- exp(mean(log(lam)))
-geolam_ci <- exp(quantile(log(lam), c(.025, .975)))
+# TWO summaries of lambda, and they are not interchangeable.
+#
+# `geolam` is the long-run growth rate: the GEOMETRIC mean across years, taken
+# within each draw. It is the only summary that reproduces what the population
+# actually does -- per draw it equals (N_tot[T]/N_tot[1])^(1/(T-1)) to machine
+# precision, because that is an algebraic identity, not an approximation.
+#
+# `arilam` is the ARITHMETIC mean across years. It is NOT a growth rate; with
+# year-to-year sd of about 0.2 it sits ~0.02 above the geometric mean by
+# Jensen's inequality, which compounds to a 14-point difference over twelve
+# years (-39% vs -53%). It is reported only where an ADDITIVE decomposition
+# needs it: lambda[s] = surv_pc[s] + rec_pc[s] + imm_pc[s] is exact, and
+# averaging it across years stays exact only for the arithmetic mean, so the
+# tLTRE level figure must use `arilam` as its denominator or the pathway shares
+# would not sum to 100%. See tltre_level() in scripts/LEYE_tLTRE.R.
+#
+# This file previously used the arithmetic mean everywhere and LABELLED it a
+# geometric mean, which understated the decline (0.959, P 0.94) against what
+# the model's own N_tot trajectory shows (0.939, P 0.997).
+lamt <- mat[, paste0("lambda[", 1:(T - 1), "]")]
+lam <- exp(rowMeans(log(lamt)))
+geolam <- mean(lam)
+geolam_ci <- quantile(lam, c(.025, .975))
+arilam <- rowMeans(lamt)
 Rm <- rowSums(mat[, paste0("N_rec[", 3:T, "]")])
 Im <- rowSums(mat[, paste0("Imm[", 3:T, "]")])
 # Recruits and immigrants are Poisson counts, so a draw with no gains at all is
@@ -646,6 +667,109 @@ split therefore rests entirely on the chick histories, not on the count data —
 seven (see [Caveats]).
 :::
 
+
+## Has recruitment changed between eras? {#sec-era}
+
+The two chick-banding eras are thirty years apart, so the module that supplies
+the recruitment prior can also be asked whether local recruitment has declined.
+This is a **candidate result, not a settled one**, and the figure is built to
+show why.
+
+```{r}
+#| label: fig-era
+#| fig-cap: "Local recruitment in the two banding eras. Left: modeled probability of surviving and returning to breed, with individual cohorts behind each era estimate. Right: posterior of the ratio between eras; the shaded region below 1 is the posterior probability of a decline."
+#| echo: false
+#| fig-width: 9.6
+#| fig-height: 4.3
+
+era_path <- "LEYE_recruitment_two_era.rds"
+if (!file.exists(era_path)) {
+  cat("*Two-era module output `", era_path, "` not found. ",
+      "Run `scripts/LEYE_recruitment_two_era.R` and re-render.*\n", sep = "")
+} else {
+  # Drawn from the module posterior at render time rather than embedding a PNG,
+  # so this cannot drift from the fit the way a saved image would.
+  em <- do.call(rbind, readRDS(era_path))
+  pic <- grep("pi_c[", colnames(em), fixed = TRUE, value = TRUE)
+  N90 <- 5 # 1995-1999 cohorts; modern cohorts follow
+  c90 <- colMeans(em[, pic[1:N90]])
+  cM <- colMeans(em[, pic[(N90 + 1):length(pic)]])
+  coh90 <- 1995:1999
+
+  era_fade <- function(h, a) {
+    v <- col2rgb(h)
+    rgb(v[1], v[2], v[3], alpha = a * 255, maxColorValue = 255)
+  }
+  era_q <- function(x) c(mean(x), quantile(x, .025), quantile(x, .975))
+  VER <- "#D55E00"; BLU <- "#0072B2"; GRY <- "#8A96A0"
+  INK <- "#1C2B33"; MID <- "#5A6872"
+
+  op <- par(no.readonly = TRUE)
+  on.exit(par(op), add = TRUE)
+  layout(matrix(1:2, 1), widths = c(1.15, 1))
+  par(col.axis = MID, col.lab = INK, fg = MID, cex.axis = 0.95, cex.lab = 1.0, lend = 1)
+
+  # -- era estimates ---------------------------------------------------------
+  par(mar = c(4.0, 4.6, 2.8, 0.8))
+  e90 <- era_q(em[, "pi_90"]); eM <- era_q(em[, "pi_M"])
+  plot(NA, xlim = c(0.45, 2.55), ylim = c(0, max(c90, cM, e90[3], eM[3]) * 1.12),
+       xaxt = "n", yaxt = "n", bty = "n", xlab = "",
+       ylab = "P(survive and return to breed)")
+  abline(h = seq(0, 0.6, 0.1), col = "#E2DCD1", lwd = 1.1)
+  set.seed(1)
+  x90 <- jitter(rep(1, length(c90)), amount = .085)
+  points(x90, c90, pch = 21, bg = era_fade(VER, .40), col = "white", lwd = 1.1, cex = 1.1)
+  points(jitter(rep(2, length(cM)), amount = .085), cM,
+         pch = 21, bg = era_fade(BLU, .40), col = "white", lwd = 1.1, cex = 1.1)
+  hi <- which.max(c90)
+  text(x90[hi], c90[hi], sprintf("%d cohort", coh90[hi]), pos = 4,
+       offset = 0.6, cex = 0.85, col = VER)
+  arrows(c(1, 2), c(e90[2], eM[2]), c(1, 2), c(e90[3], eM[3]),
+         code = 3, angle = 90, length = .05, lwd = 2.6, col = c(VER, BLU))
+  points(c(1, 2), c(e90[1], eM[1]), pch = 19, cex = 1.7, col = c(VER, BLU))
+  text(c(1, 2), c(e90[1], eM[1]), sprintf("%.3f", c(e90[1], eM[1])),
+       pos = 4, offset = 0.9, cex = 1.0, font = 2, col = c(VER, BLU))
+  axis(1, 1:2, c("1995-1999", "2018-2025"), lwd = 0, cex.axis = 1.0, col.axis = INK)
+  axis(2, seq(0, 0.6, 0.1), las = 1, lwd = 0, lwd.ticks = 1)
+  mtext("Modeled recruitment, 95% CRI", side = 3, line = 1.1, adj = 0,
+        cex = 1.0, font = 2, col = INK)
+  mtext("small points = individual cohorts", side = 3, line = 0.1, adj = 0,
+        cex = 0.8, col = MID)
+
+  # -- ratio posterior -------------------------------------------------------
+  par(mar = c(4.0, 3.8, 2.8, 1.2))
+  rr <- em[, "era_ratio"]
+  dd <- density(rr[rr < 3], from = 0, to = 3)
+  plot(NA, xlim = c(0, 3), ylim = c(0, max(dd$y) * 1.12), xaxt = "n", yaxt = "n",
+       bty = "n", xlab = "Modern / 1990s recruitment", ylab = "Posterior density")
+  kk <- dd$x <= 1
+  polygon(c(dd$x[kk], 1, 0), c(dd$y[kk], 0, 0), col = era_fade(BLU, .34), border = NA)
+  polygon(c(dd$x[!kk], 3, 1), c(dd$y[!kk], 0, 0), col = era_fade(GRY, .22), border = NA)
+  lines(dd, col = INK, lwd = 2)
+  segments(1, 0, 1, max(dd$y) * 0.70, col = INK, lwd = 1.6, lty = 2)
+  text(1, max(dd$y) * 0.75, "no change", cex = 0.9, col = INK, font = 2)
+  axis(1, 0:3, lwd = 0, lwd.ticks = 1); axis(2, labels = FALSE, lwd = 0)
+  text(1.45, max(dd$y) * 1.04, sprintf("P(decline) = %.2f", mean(rr < 1)),
+       adj = 0, cex = 1.1, font = 2, col = BLU)
+  text(1.45, max(dd$y) * 0.90,
+       sprintf("ratio %.2f (%.2f-%.2f)", mean(rr),
+               quantile(rr, .025), quantile(rr, .975)),
+       adj = 0, cex = 0.9, col = MID)
+  mtext("How much did it change?", side = 3, line = 1.1, adj = 0,
+        cex = 1.0, font = 2, col = INK)
+  mtext("interval spans 1", side = 3, line = 0.1, adj = 0, cex = 0.8, col = MID)
+}
+```
+
+::: {.callout-warning appearance="simple"}
+**Do not report this as an established decline.** The direction is well
+supported and the magnitude is not: the ratio spans a thirteen-fold drop to a
+modest increase. The comparison rests on 13 and 5 returning birds, and the 1997
+cohort — 7 of 11 chicks — supplies most of the 1990s signal on its own. Note
+also that the left panel is the *typical* cohort in each era, not the cohort
+average; see @sec-which-pi.
+:::
+
 ## Recruitment versus immigration {#recruitment-versus-immigration}
 
 ```{r}
@@ -690,7 +814,7 @@ indicative, not as a finding.
 
 # Productivity
 
-Chicks per nest are modelled in **two parts**: whether the nest succeeded at all,
+Chicks per nest are modeled in **two parts**: whether the nest succeeded at all,
 and how many of a four-egg clutch fledged given that it did.
 
 ```{r}
@@ -760,16 +884,28 @@ sound similar and have different answers:
 Everything below is computed per posterior draw, so each contribution carries a
 credible interval rather than being a point estimate at posterior means.
 
-## What sustains the population
+## What sustains the population {#sec-sustains}
 
 ```{r}
 #| label: fig-tltre-level
-#| fig-cap: "Additive contributions to mean λ. Bars are 95% credible intervals; percentages are each pathway's share of λ."
+#| fig-cap: "Additive contributions to mean annual λ. Bars are 95% credible intervals; percentages are each pathway's share of λ. This λ is the arithmetic mean over the transitions the decomposition covers, not the geometric-mean growth rate — see the note below."
 #| fig-height: 2.9
 
 lev <- as.data.frame(tl_level)
 lev$pathway <- factor(rownames(tl_level), levels = rev(rownames(tl_level)))
+# The ARITHMETIC mean lambda, necessarily: this decomposition is additive and
+# only the arithmetic mean preserves the identity across years, so the shares
+# sum to 100%. It is a larger number than the geometric mean reported as the
+# growth rate at the top -- see the note under this figure.
+#
+# It also covers FEWER transitions: the decomposition needs the previous year's
+# productivity, so it starts at s = 2. Both differences are spelled out in the
+# note, so compute each one here rather than letting the reader guess which
+# accounts for the gap.
 lam_mean <- attr(tl_level, "lambda")[["mean"]]
+lam_ari_S <- mean(rowMeans(lamt[, tl$S, drop = FALSE]))
+lam_geo_S <- mean(exp(rowMeans(log(lamt[, tl$S, drop = FALSE]))))
+stopifnot(all.equal(lam_mean, lam_ari_S), ncol(lamt) > length(tl$S))
 
 ggplot(lev, aes(contribution, pathway)) +
   geom_linerange(aes(xmin = lwr, xmax = upr), colour = COL_AD, linewidth = .7) +
@@ -780,8 +916,8 @@ ggplot(lev, aes(contribution, pathway)) +
   ) +
   scale_x_continuous(expand = expansion(mult = c(.05, .18))) +
   labs(
-    title = "Contributions to mean λ",
-    subtitle = sprintf("Percentages are share of λ = %.3f", lam_mean),
+    title = "Contributions to mean annual λ",
+    subtitle = sprintf("Percentages are share of mean annual λ = %.3f", lam_mean),
     x = "Contribution to λ", y = NULL
   ) +
   theme_leye()
@@ -789,6 +925,49 @@ ggplot(lev, aes(contribution, pathway)) +
 
 Survival is the dominant pathway. Recruitment and immigration contribute
 comparable, smaller amounts — but see the caveat on separating them below.
+
+::: {.callout-note appearance="simple"}
+**Two averages of λ appear in this report, and they differ for two reasons.**
+This figure's denominator is `r sprintf("%.3f", lam_mean)`; the growth rate at
+the top of the report is `r sprintf("%.3f", geolam)`.
+
+*Different window.* The decomposition needs the previous year's productivity, so
+it covers `r length(tl$S)` of the `r T - 1` transitions, starting at
+`r ipm_years[2]`–`r ipm_years[3]`. The dropped first transition is the highest in
+the series, which is why this figure's λ sits below the whole-series arithmetic
+mean of `r sprintf("%.3f", mean(arilam))`.
+
+*Different average.* This figure must average **arithmetically**, because
+λ~s~ = survival + recruitment + immigration holds exactly in each year and only
+the arithmetic mean preserves that identity — under any other average the
+pathway shares would not sum to 100%. The headline is the **geometric** mean,
+the correct summary of multiplicative growth: within each posterior draw it
+equals (*N*~2026~/*N*~2014~)^1/12^ exactly. On this figure's
+`r length(tl$S)` transitions the two averages are
+`r sprintf("%.3f", lam_ari_S)` and `r sprintf("%.3f", lam_geo_S)`, so about
+`r sprintf("%.3f", lam_ari_S - lam_geo_S)` of the gap is the averaging alone.
+
+*Why averaging growth rates overstates growth.* Growth rates multiply rather
+than add. A population that gains 20% one year and loses 20% the next has
+λ = 1.2 and λ = 0.8, which average to exactly 1.0 — yet it ends at
+1.2 × 0.8 = 0.96 of where it started, a true rate of $\sqrt{0.96} = 0.98$ a
+year. The arithmetic mean of a set of ratios is never below their geometric
+mean, and the gap widens as the values scatter: to second order it is about
+σ²/2 on the log scale, which on these
+`r length(tl$S)` transitions comes to
+`r sprintf("%.3f", mean(apply(log(lamt[, tl$S, drop = FALSE]), 1, var)) / 2)`
+against the `r sprintf("%.3f", lam_ari_S - lam_geo_S)` actually observed — the
+right size, the approximation being exact only in the lognormal limit.
+This is **Jensen's inequality**: when a quantity is put through a curved
+transformation — here a logarithm — averaging before and averaging after give
+different answers, and the direction is fixed by which way the curve bends.
+
+The difference compounds. Over twelve years the whole-series arithmetic figure
+implies a `r sprintf("%.0f%%", abs(100 * (mean(arilam)^(T - 1) - 1)))` decline
+and the geometric one `r sprintf("%.0f%%", abs(100 * (geolam^(T - 1) - 1)))`;
+the model's own *N*~tot~ path gives the latter. Use the geometric mean for
+growth, the arithmetic mean only as this decomposition's denominator.
+:::
 
 ## What drives year-to-year variation {#sec-variance}
 
@@ -976,12 +1155,17 @@ sensitive to the whole distribution detected it.
 ## Prior sensitivity {#sec-prior-sens}
 
 Recruitment carries an informative prior from the two-era chick analysis, so the
-obvious question is whether the result is data-driven or prior-driven. Two
+obvious question is whether the result is data-driven or prior-driven. Three
 companion fits probe it from different directions, each changing only the
 recruitment hyperparameters:
 
 - **Cohort-averaged** — `pi_rec` centred on the *mean across modern cohorts*
   rather than on the typical cohort. See @sec-which-pi for why these differ.
+- **1997 excluded** — `pi_rec` *and* `kappa` re-derived from the two-era fit with
+  the 1997 cohort dropped (@sec-era). This is the only setting that makes the
+  prior **tighter** rather than merely moving it: the others shift the mean and
+  leave the width alone, so this one asks whether a harder-pinned `pi_rec`
+  changes the recruitment/immigration split.
 - **Vague** — flat `Beta(1, 1)` on both recruitment parameters, which asks what
   the counts alone would say.
 
@@ -992,15 +1176,18 @@ recruitment hyperparameters:
 
 companions <- list(
   "Cohort-averaged" = "LEYE_IPM_samples_cohortmean.rds",
+  "1997 excluded" = "LEYE_IPM_samples_drop1997.rds",
   "Vague" = "LEYE_IPM_samples_vaguepriors.rds"
 )
 
 fmt <- function(m, p) {
   sprintf("%.3f (%.3f–%.3f)", mean(m[, p]), quantile(m[, p], .025), quantile(m[, p], .975))
 }
+# Geometric mean across years, matching the headline. See the note at the
+# headline chunk for why this is not rowMeans().
 gl <- function(m) {
-  l <- rowMeans(m[, paste0("lambda[", 1:(T - 1), "]")])
-  sprintf("%.3f (%.3f–%.3f)", exp(mean(log(l))), exp(quantile(log(l), .025)), exp(quantile(log(l), .975)))
+  l <- exp(rowMeans(log(m[, paste0("lambda[", 1:(T - 1), "]")])))
+  sprintf("%.3f (%.3f–%.3f)", mean(l), quantile(l, .025), quantile(l, .975))
 }
 # Per-capita contributions to lambda, computed the same way for every fit so the
 # columns are comparable. omega may be scalar or year-indexed; resolve per fit.
@@ -1059,9 +1246,24 @@ for (nm in names(companions)) {
       "%s predates the provenance stamp and cannot be verified against the current model.", nm
     ))
   } else if (!is.null(pr)) {
+    # Nothing else in this report looks at a companion's mixing -- the
+    # convergence table above covers the main fit only -- so a badly mixed
+    # companion would be tabulated as fact with no warning. Checked on the
+    # parameters its column actually reports; `logB0` is excluded for the
+    # reason given in the convergence callout.
+    dpar <- intersect(
+      c("pi_rec", "kappa", "psi1", "psi2", "omega", "omega_bar"),
+      colnames(sv[[1]])
+    )
+    worst <- max(gelman.diag(sv[, dpar], multivariate = FALSE)$psrf[, 1])
     notes <- c(notes, sprintf(
-      "%s: `pi_rec` ~ Beta(%g, %g), `kappa` ~ Beta(%g, %g).",
-      nm, pr[["a_pi"]], pr[["b_pi"]], pr[["a_kap"]], pr[["b_kap"]]
+      "%s: `pi_rec` ~ Beta(%.4f, %.4f), `kappa` ~ Beta(%.4f, %.4f).%s",
+      nm, pr[["a_pi"]], pr[["b_pi"]], pr[["a_kap"]], pr[["b_kap"]],
+      if (worst > 1.05) {
+        sprintf(" **Rhat up to %.3f on the quantities shown — treat this column with caution.**", worst)
+      } else {
+        sprintf(" Rhat ≤ %.3f on the quantities shown.", worst)
+      }
     ))
   }
 }
@@ -1094,6 +1296,15 @@ cohorts. With $\sigma_\pi \approx 1.39$ the two differ by about a third —
 0.054 against 0.072 — because the random effect is symmetric in logit space, not
 in probability space.
 
+This is the same curved-transformation effect as in the λ note in
+@sec-sustains, and the same name attaches to it. $\varepsilon_c$ is symmetric
+about zero on the logit scale, but $\operatorname{logit}^{-1}$ bends, so the
+cohorts above the typical one are pushed further from it in probability than the
+cohorts below. Back-transforming the typical cohort therefore gives a smaller
+number than averaging the back-transformed cohorts. The bending is what matters,
+not the direction of the era effect: the same thing would happen with
+$\sigma_\pi$ unchanged and $b_{\text{era}}$ reversed.
+
 Neither is obviously wrong, so both are reported. Hold the cohort-averaged
 column loosely for one reason: $\sigma_\pi$ is estimated from 13 cohorts and 18
 returning birds, and the 1997 cohort alone sits at $\pi_c = 0.58$ against
@@ -1111,7 +1322,7 @@ recruitment rate reflects the chick data more than the counts.
 This is worth stating plainly rather than smoothing over, and three readings are
 possible without the analysis being able to separate them. The counts cannot
 distinguish recruitment from immigration, so recruitment inferred from counts
-absorbs any unmodelled inflow. The assumption that modern chick detection
+absorbs any unmodeled inflow. The assumption that modern chick detection
 matches the 1990s may be too generous, which would bias recruitment downward.
 Or local recruitment genuinely is low and immigration genuinely is high.
 
@@ -1154,7 +1365,7 @@ on that one cohort.
 
 **`psi` is not survival.** It is survival combined with returning to breed
 locally. Birds that survive but settle elsewhere are excluded; immigration is
-modelled separately through `omega`.
+modeled separately through `omega`.
 
 **Counts end in 2025** while survival and productivity run to 2026. The extra
 survival interval and productivity year are estimated in dedicated pooled

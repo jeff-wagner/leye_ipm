@@ -16,7 +16,7 @@
 # Recruitment and detection are confounded in chick data alone: only their
 # product is identified, so 5 modern resights out of 133 is consistent with
 # anything from ~5% to ~18% recruitment depending on detection. Birds in BOTH
-# eras carried colour marks read by scope, so detection is modelled as shared,
+# eras carried colour marks read by scope, so detection is modeled as shared,
 # and the 178 contemporaneous 1990s adults pin it. That is what turns the
 # modern chick data from a bound into an estimate.
 #
@@ -68,6 +68,7 @@ storage.mode(C90) <- "integer"
 keep <- b90 < last90
 C90 <- C90[keep, , drop = FALSE]
 coh90 <- as.integer(factor(j90$`Year banded`[keep]))
+coh90_years <- sort(unique(j90$`Year banded`[keep]))
 b90 <- b90[keep]
 last90 <- last90[keep]
 
@@ -92,6 +93,7 @@ storage.mode(CM) <- "integer"
 keep <- bM < NM
 CM <- CM[keep, , drop = FALSE]
 cohM <- as.integer(factor(cm$year_banded[keep]))
+cohM_years <- sort(unique(cm$year_banded[keep]))
 bM <- bM[keep]
 
 nC90 <- nrow(C90)
@@ -103,6 +105,7 @@ nCohM <- max(cohM)
 cohM_off <- cohM + nCoh90
 nCohAll <- nCoh90 + nCohM
 modern <- c(rep(0, nCoh90), rep(1, nCohM))
+coh_years_all <- c(coh90_years, cohM_years) # labels for pi_c[1:nCohAll]
 
 cat(sprintf(
   "1990s: %d chicks (%d cohorts) + %d adults | modern: %d chicks (%d cohorts)\n",

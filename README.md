@@ -82,13 +82,16 @@ figures.
 |---|---|
 | `LEYE_IPM.R` | **The main model.** Data prep, NIMBLE model, fit, summaries and figures. |
 | `LEYE_IPM_run_parallel.R` | Runs the IPM with one MCMC chain per core. Sources `LEYE_IPM.R` with `SKIP_RUN <- TRUE` so only the model objects are defined. |
+| `LEYE_IPM_sensitivity.R` | Refits the IPM with **only** the recruitment hyperparameters changed, so companion fits stay comparable to the main one by construction. Settings: `cohortmean`, `drop97`, `vague`. Writes to deliberately non-canonical filenames. |
 | `LEYE_recruitment_two_era.R` | **Supplies the IPM's recruitment priors.** Fits 1990s and modern chick cohorts jointly with shared detection, and estimates the change between eras. |
+| `LEYE_recruitment_drop_cohort.R` | Leave-one-cohort-out sensitivity on the two-era recruitment fit. Inherits priors, detection, adult survival and both likelihoods from `LEYE_recruitment_two_era.R`; only the dropped cohorts' chicks and the cohort index change. Defaults to 1997, the cohort that returned 7 of 11 chicks and sets the 1990s baseline. |
 | `LEYE_juv90_module.R` | The earlier 1990s-only recruitment module. Superseded for prior generation, but retained: it holds the validated `dChick`/`dAdult` likelihoods that the two-era model sources. |
 | `create_chick_eh_2018_2026.R` | Cleans the modern chick resights into an analysis-ready encounter history. |
 | `LEYE_tLTRE.R` | Transient LTRE. Reads a cached posterior; decomposes mean λ across pathways and Var(λ) across drivers, separating demographic stochasticity. |
 | `LEYE_tag_effects_CJS.R` | Standalone CJS robustness check on the tag effects, independent of the IPM. Tests transience and time-since-tagging confounds. |
+| `fig_era_recruitment.R` | Builds the era-comparison figure (F7/F7b) from the two-era posterior: modeled recruitment per era with individual cohorts, and the posterior of the modern/1990s ratio. Emits deck and transparent talk variants, PNG and PDF, from one draw. |
 | `create_EH_2026.R` | Builds the adult encounter history and covariate table from raw banding and resight files. |
-| `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history. **Partly simulated — see the caveat below.** |
+| `create_juv_eh_1995_2000.R` | Builds the 1990s chick encounter history from the real banding totals. Birds never resighted after banding are reconstructed rows — **see the caveat below.** |
 | `LEYE_trend*.R` | Pre-IPM abundance-trend models (negative-binomial GLMMs). Independent of the IPM. |
 
 ### `reports/` — collaborator-facing output
@@ -110,6 +113,9 @@ figures.
 |---|---|
 | `LEYE_IPM_samples.rds` | **The canonical fit.** The report and tLTRE read this exact name. |
 | `LEYE_IPM_samples_vaguepriors.rds` | Companion fit with flat recruitment priors, for the sensitivity section. |
+| `LEYE_IPM_samples_cohortmean.rds` | Companion fit with `pi_rec` centred on the cohort-averaged modern recruitment. |
+| `LEYE_IPM_samples_drop1997.rds` | Companion fit with `pi_rec` and `kappa` re-derived from the two-era fit with 1997 excluded. |
+| `LEYE_recruitment_two_era_drop1997.rds` | The two-era recruitment posterior with 1997 removed. Supplies the prior above, and the sensitivity overlay in the era figure. |
 | `LEYE_IPM_samples_omega_timevarying.rds` | Archived evidence for the rejected time-varying immigration test. |
 | `LEYE_tLTRE_results.rds`, `LEYE_tag_effects_CJS.rds` | Outputs of the corresponding scripts. |
 
@@ -162,7 +168,7 @@ Three data sources share common demographic parameters:
    for sex (F/M/Unknown) and tag type (none/geolocator/GPS).
 3. **Productivity** — chicks per nest, 2018–2026.
 
-**Survival** is modelled on the logit scale with female and untagged as reference levels:
+**Survival** is modeled on the logit scale with female and untagged as reference levels:
 
 ```
 logit(phi[i,t]) = lphi_base[t] + bSex_phi[sex_i] + bTag_phi[tag_i]
@@ -189,7 +195,7 @@ published juvenile survival estimates — they measure different things.
 There is no separate juvenile stage in `N_tot`, because volunteer counts cannot
 distinguish non-breeding age-1 birds from breeding adults.
 
-**Productivity** is modelled in two parts — whether a nest succeeded, and how many of a
+**Productivity** is modeled in two parts — whether a nest succeeded, and how many of a
 four-egg clutch fledged given success:
 
 ```
@@ -250,7 +256,7 @@ chick data says 0.052, and the tighter modern prior wins.
 That disagreement is a finding, not a defect, and it should be reported rather than
 smoothed over. Three readings are possible and the analysis cannot yet separate them:
 the counts cannot distinguish recruitment from immigration, so "recruitment" inferred
-from counts absorbs any unmodelled inflow; the assumption that modern chick detection
+from counts absorbs any unmodeled inflow; the assumption that modern chick detection
 matches the 1990s may be too generous, which would bias `psi` down; or local recruitment
 genuinely is low and immigration genuinely is high.
 
@@ -264,7 +270,21 @@ to (0.02–0.97) with its centre unmoved.
 **Abundance is on a relative scale.** `logB0` and the absolute level of `N_tot` are
 non-identifiable — only their sum enters the count linear predictor. Expect `logB0` to
 show poor convergence (Rhat well above 1.05); this is structural, not a bug, and does
-not affect λ. **Read trajectory shape and λ, never absolute abundance.**
+not affect λ. **Read trajectory shape and λ, never absolute abundance.** Its effective
+sample size is ~100 out of 21,000 draws at the default chain length, in every fit, so
+its Rhat is itself noisy there and has landed anywhere from 1.01 to 1.19 on luck alone;
+tripling the chain fixes it. A slice sampler does not — the ridge needs `logB0` and the
+whole discrete `N_ad` trajectory to move together.
+
+**There are two averages of λ, and only one is the growth rate.** Use the **geometric**
+mean across years, `exp(rowMeans(log(lambda)))` within each draw: it equals
+(`N_tot[T]`/`N_tot[1]`)^(1/(T−1)) exactly, and currently gives 0.939 (0.897–0.982),
+P(λ<1) = 0.997. The **arithmetic** mean is about 0.02 higher (0.959) because of
+year-to-year variation in λ, which compounds to a 14-point difference over twelve years,
+so it must never be quoted as a growth rate — it was, until 2026-11-03. It is correct in
+exactly one place: `tltre_level()`, where λ = survival + recruitment + immigration holds
+exactly each year and only the arithmetic mean preserves that identity, so the pathway
+shares sum to 100%. Do not "fix" that one to match.
 
 **Recruitment and immigration are confounded.** Both `psi` and `omega` add birds, and
 relative-scale counts cannot fully separate them. This is why recruitment carries an
@@ -275,7 +295,8 @@ has a wide credible interval. Report it as such.
 Because the two trade off, sharpening one moves the other. Replacing the 1990s-derived
 recruitment prior with the modern-era estimate halved recruitment and raised immigration
 to compensate — the share of annual gains from local recruitment fell from **56% to 31%**
-while λ barely moved (0.966 → 0.965). The trajectory is robust; the *attribution* is not,
+while λ barely moved (0.966 → 0.965, arithmetic-mean λ as reported at the time; see the
+note on the two λ summaries below). The trajectory is robust; the *attribution* is not,
 and it depends on which era the recruitment prior comes from.
 
 **The counts inform recruitment level but not timing.** In fitting, `pi_rec` moves
@@ -287,45 +308,53 @@ write-up should say so.
 
 ## Caveats
 
-### The 1990s chick cohorts are partly simulated
+### The 1990s chick encounter history is partly reconstructed
 
-Still the most important limitation on the recruitment estimates, though its route into
-the model changed once the modern chick data arrived.
-
-The IPM's recruitment prior now comes from the **modern** era (133 chicks banded
-2018–2025), so the simulated 1990s cohorts no longer set it directly. They still matter
-in two ways: they size the 1990s half of the era comparison, and — more importantly —
-the 178 contemporaneous 1990s adults are what pin the shared detection probability that
-makes the modern estimate identifiable at all. Five modern resights cannot determine
-detection on their own. So the simulation still propagates, less directly than before.
-
-`create_juv_eh_1995_2000.R` reconstructs the 1990s chick cohorts, but only **1996** rests
-on real brood records. For 1995, 1997 and 1998 the number of broods is a random Poisson
-draw with an explicitly arbitrary mean:
+Cohort **totals are real measurements.** The number of chicks banded in each natal year
+was recovered from the original banding records on 2026-09-29 and is now a documented
+constant in `create_juv_eh_1995_2000.R`, guarded so the output file cannot disagree
+with it:
 
 ```r
-.default = rpois(4, 0.85 * num_broods96)
+CHICKS_BANDED <- c(`1995` = 37, `1996` = 34, `1997` = 11, `1998` = 30, `1999` = 10)
 ```
 
-Chicks per brood are then sampled from the 1996 empirical distribution, and the sex of
-never-resighted birds outside 1996 is a coin flip. Consequences:
+This replaced an earlier version that drew the 1997 and 1998 denominators from
+`rpois(4, 0.85 * num_broods96)` and omitted 1999 altogether. Refitting on the real
+numbers left every conclusion unchanged, which is itself a robustness result.
 
-- **Cohort denominators for three of four cohorts are assumptions, not measurements.**
-  Recruitment probability scales inversely with them: denominators that are too large
-  bias `psi` low, too small bias it high.
-- **The committed `LEYE_juv_EH_1995_2000.csv` is not reproducible from the script.** A
-  `set.seed()` has since been added so that *future* runs are reproducible, but the
-  committed file predates it and was produced under an unrecorded RNG state.
-  **Re-running the script will yield a different — equally valid — draw, and will
-  invalidate any recruitment estimate derived from the committed version.** Treat that
-  CSV as the data of record and regenerate only deliberately.
-- **Do not use the `Sex` column of the reconstructed rows.** It is simulated. The real
-  named birds are ~69% unknown sex; the reconstructed rows are a clean 50/50 with no
-  unknowns. `LEYE_juv90_module.R` deliberately does not use sex as a covariate.
+Individual **rows** are still partly reconstructed. Only 16 of the 122 chicks have a
+post-banding record in `leye_90s_chick_survival.xlsx`. The other 106 are
+banded-but-never-resighted birds, written as a 1 in the natal year and 0 elsewhere.
+That they exist is a measurement — the banding totals say how many there were — but
+they carry no identity beyond natal year.
 
-The cohort random effect in the juvenile module absorbs some of this uncertainty, and a
-sensitivity analysis varying the totals is advisable before publishing any recruitment
-figure.
+What this does and does not limit:
+
+- **Cohort denominators are measurements, not assumptions.** Recruitment scales
+  inversely with them, so before 2026-09-29 this was the largest single source of
+  uncertainty in the recruitment estimates. It no longer is.
+- **The rebuild is deterministic and reproduces the committed data.** Re-running the
+  script twice gives byte-identical output, and that output differs from the committed
+  CSV only in line endings (the committed file is CRLF, a fresh run writes LF) — every
+  parsed value, including row order, is identical. The former warning to treat the CSV
+  as the data of record and regenerate only deliberately no longer applies.
+- **Brood is unassignable for all but one cohort.** Recorded brood IDs survive only for
+  1996 — 12 broods across 34 chicks, in the `broods_1996` sheet. The 106 reconstructed
+  rows cannot be grouped at all, so no model in this repo can fit a brood-level random
+  effect, and chicks within a cohort are treated as conditionally independent. The
+  1990s nicknames (`Firehouse Blue`, `Connors' Kid`) are brood-site labels and do
+  identify siblings among the 16 named birds, but not among the rest.
+- **Do not use the `Sex` column of the reconstructed rows.** For 1996 the values are
+  real sexes taken from the brood records, but *which* reconstructed row receives which
+  value is arbitrary; every other cohort is recorded as unknown. No script in this repo
+  uses sex as a covariate.
+
+The remaining limitation on the 1990s half of the era comparison is no longer the
+denominators but their **concentration**: the 1997 cohort is 11 chicks with 7 returning,
+and it sets the baseline the era contrast is measured against. See the recruitment
+caveat in the report, and `scripts/LEYE_recruitment_drop_cohort.R` for the
+leave-one-cohort-out refit that quantifies it.
 
 ### Other open items
 
@@ -368,8 +397,10 @@ not an adult at risk, and including it biases adult survival downward.
 Rscript scripts/create_juv_eh_1995_2000.R
 ```
 
-Rewrites `LEYE_juv_EH_1995_2000.csv`. **Read the simulation caveat above first** — this
-is not a deterministic rebuild.
+Rewrites `LEYE_juv_EH_1995_2000.csv`. Deterministic: cohort totals are fixed constants
+and the one remaining `slice_sample()` is seeded, so a rerun reproduces the committed
+data exactly (bar CRLF versus LF line endings). See the caveat above for what the file
+does and does not contain.
 
 ---
 

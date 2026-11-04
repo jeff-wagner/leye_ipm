@@ -621,8 +621,15 @@ ipm_provenance <- function(code = ipmCode, consts = constants, dat = data) {
 }
 
 # Attach provenance immediately before saving.
-stamp_ipm_cache <- function(samples) {
-  attr(samples, "ipm_provenance") <- ipm_provenance()
+#
+# `consts` MUST be the constants the fit actually used. A companion fit that
+# overrides the recruitment hyperparameters has to pass its own list: defaulting
+# to the global `constants` stamps the DEFAULT priors onto a fit that did not
+# use them, and the report prints that stamp as fact. The `structural`
+# fingerprint is unaffected either way -- it excludes the prior keys by design --
+# so a wrong stamp here still reports "ok" and goes unnoticed.
+stamp_ipm_cache <- function(samples, consts = constants) {
+  attr(samples, "ipm_provenance") <- ipm_provenance(consts = consts)
   samples
 }
 
@@ -863,11 +870,15 @@ summarize_ipm <- function(
     ),
     "Population growth lambda"
   )
-  geolam <- exp(mean(log(rowMeans(mat[, paste0("lambda[", 1:(T - 1), "]")]))))
+  # Geometric mean ACROSS YEARS, within each draw. Not rowMeans(): the
+  # arithmetic mean is not a growth rate, and taking it here used to put this
+  # figure 0.02 above the rate the model's own N_tot trajectory implies. Per
+  # draw this equals (N_tot[T]/N_tot[1])^(1/(T-1)) exactly.
+  lamg <- exp(rowMeans(log(mat[, paste0("lambda[", 1:(T - 1), "]")])))
   report_note(sprintf(
-    "Approx geometric-mean lambda: %.3f (%.1f%%/yr)\n",
-    geolam,
-    100 * (geolam - 1)
+    "Geometric-mean lambda: %.3f (%.3f, %.3f), %.1f%%/yr | P(lambda<1) %.3f\n",
+    mean(lamg), quantile(lamg, .025), quantile(lamg, .975),
+    100 * (mean(lamg) - 1), mean(lamg < 1)
   ))
 
   rec <- rbind(
