@@ -242,28 +242,24 @@ data.frame(
   cols_align("left")
 ```
 
-![Study area. **A** Upper Cook Inlet, with every wetland in the volunteer survey. Bubble area is the mean number of Lesser Yellowlegs per survey — a raw count, not an abundance estimate, and uncorrected for detection, effort or wetland area. Hollow circles are wetlands that have never produced a detection; grey circles are the five outside the Anchorage bowl, which are surveyed but not fitted (see below). **B** The Anchorage bowl, where 24 of the wetlands and all of the mark–resight and nest monitoring sit; numbers are wetland IDs, listed in `manuscript/figures/study_area_sites.csv`. **C** Location in Alaska. Shoreline from GSHHG full resolution (Wessel & Smith 1996).](../manuscript/figures/study_area.png){#fig-studyarea}
+![Study area. **A** The Anchorage bowl, with the 27 wetlands in the IPM's count stream; the mark–resight and nest monitoring also sit here. The five distant wetlands in the volunteer survey are surveyed but not fitted, and are not shown (see below). Bubble area is the mean number of Lesser Yellowlegs per survey — a raw count, not an abundance estimate, and uncorrected for detection, effort or wetland area. Hollow circles are wetlands that have never produced a detection. Site coordinates are in `manuscript/figures/study_area_sites.csv`. **B** Location in Alaska. Shoreline from GSHHG full resolution (Wessel & Smith 1996).](../manuscript/figures/study_area_bowl.png){#fig-studyarea}
 
 ::: {.callout-note}
 ## The counts cover the same ground as the demographic data — deliberately
 
-The volunteer survey covers 32 wetlands across roughly 67 km of upper Cook Inlet
-(@fig-studyarea A), but every marked bird and every monitored nest comes from the
-Anchorage bowl (@fig-studyarea B). Fitting all 32 would make λ a statement about a
+The volunteer survey covers 32 wetlands across roughly 67 km of upper Cook Inlet,
+but every marked bird and every monitored nest comes from the Anchorage bowl
+(@fig-studyarea). Fitting all 32 would make λ a statement about a
 wider population than the survival and productivity estimates meant to explain it, and
 the decomposition further down this report would be comparing the two. Since
 2026-11-04 the count stream is restricted to the 27 wetlands in the bowl, dropping both
 Palmer Hay Flats accesses, Eklutna, Big Lake and Lynn Fuller's Ponds — 37–67 km out,
-and 22.6% of all birds counted. They are the grey circles in @fig-studyarea A.
+and 22.6% of all birds counted. They are not drawn in @fig-studyarea.
 
 **The restriction makes the decline steeper, not weaker:** λ 0.939 → 0.930, with
 P(λ < 1) = 0.997 either way. The wider-area fit is kept as a sensitivity. The list and
 reasoning are at the top of `scripts/LEYE_IPM.R`.
 :::
-
-@fig-studyarea-bowl shows only the 27 wetlands the IPM fits.
-
-![The fitted count wetlands. **A** The 27 Anchorage bowl wetlands in the IPM's count stream; the five distant wetlands in @fig-studyarea A are left off. Bubble area is the mean number of Lesser Yellowlegs per survey (raw count, as in @fig-studyarea); hollow circles have never produced a detection. **B** Location in Alaska.](../manuscript/figures/study_area_bowl.png){#fig-studyarea-bowl}
 
 Recruitment carries a **two-year lag**: chicks are absent from the breeding site
 until they recruit, and chick data from both eras show recruitment split roughly
