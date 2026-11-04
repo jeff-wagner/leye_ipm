@@ -242,21 +242,28 @@ data.frame(
   cols_align("left")
 ```
 
+![Study area. **A** Upper Cook Inlet, with every wetland in the volunteer survey. Bubble area is the mean number of Lesser Yellowlegs per survey — a raw count, not an abundance estimate, and uncorrected for detection, effort or wetland area. Hollow circles are wetlands that have never produced a detection; grey circles are the five outside the Anchorage bowl, which are surveyed but not fitted (see below). **B** The Anchorage bowl, where 24 of the wetlands and all of the mark–resight and nest monitoring sit; numbers are wetland IDs, listed in `manuscript/figures/study_area_sites.csv`. **C** Location in Alaska. Shoreline from GSHHG full resolution (Wessel & Smith 1996).](../manuscript/figures/study_area.png){#fig-studyarea}
+
 ::: {.callout-note}
 ## The counts cover the same ground as the demographic data — deliberately
 
-The volunteer survey covers 32 wetlands across roughly 67 km of upper Cook Inlet, but
-every marked bird and every monitored nest comes from the Anchorage bowl. Fitting all
-32 would make λ a statement about a wider population than the survival and productivity
-estimates meant to explain it, and the decomposition further down this report would be
-comparing the two. Since 2026-11-04 the count stream is restricted to the 27 wetlands
-in the bowl, dropping both Palmer Hay Flats accesses, Eklutna, Big Lake and Lynn
-Fuller's Ponds — 37–67 km out, and 22.6% of all birds counted.
+The volunteer survey covers 32 wetlands across roughly 67 km of upper Cook Inlet
+(@fig-studyarea A), but every marked bird and every monitored nest comes from the
+Anchorage bowl (@fig-studyarea B). Fitting all 32 would make λ a statement about a
+wider population than the survival and productivity estimates meant to explain it, and
+the decomposition further down this report would be comparing the two. Since
+2026-11-04 the count stream is restricted to the 27 wetlands in the bowl, dropping both
+Palmer Hay Flats accesses, Eklutna, Big Lake and Lynn Fuller's Ponds — 37–67 km out,
+and 22.6% of all birds counted. They are the grey circles in @fig-studyarea A.
 
 **The restriction makes the decline steeper, not weaker:** λ 0.939 → 0.930, with
 P(λ < 1) = 0.997 either way. The wider-area fit is kept as a sensitivity. The list and
 reasoning are at the top of `scripts/LEYE_IPM.R`.
 :::
+
+@fig-studyarea-bowl shows only the 27 wetlands the IPM fits.
+
+![The fitted count wetlands. **A** The 27 Anchorage bowl wetlands in the IPM's count stream; the five distant wetlands in @fig-studyarea A are left off. Bubble area is the mean number of Lesser Yellowlegs per survey (raw count, as in @fig-studyarea); hollow circles have never produced a detection. **B** Location in Alaska.](../manuscript/figures/study_area_bowl.png){#fig-studyarea-bowl}
 
 Recruitment carries a **two-year lag**: chicks are absent from the breeding site
 until they recruit, and chick data from both eras show recruitment split roughly
@@ -651,7 +658,7 @@ data.frame(
 
 ```{r}
 #| label: fig-prior-post
-#| fig-cap: "Prior versus posterior for the two recruitment parameters. Movement away from the prior shows the count data carrying information; overlap shows the estimate resting on the 1990s analysis."
+#| fig-cap: "Prior versus posterior for the two recruitment parameters. Movement away from the prior would show the count data carrying information about recruitment; the near-complete overlap shows that it carries very little, and that these estimates rest on the chick analysis that supplied the priors."
 #| fig-height: 3.6
 
 grid_x <- seq(0, 1, length.out = 512)
@@ -676,14 +683,47 @@ ggplot(dd, aes(x, y, colour = which, fill = which)) +
   labs(title = "Prior versus posterior", x = NULL, y = "Density") +
   theme_leye() +
   theme(legend.position = "top", axis.text.y = element_blank())
+
+# How far each posterior actually moved, in units of its own prior. Quoted
+# inline below rather than described in words: this callout previously claimed
+# `pi_rec` "moves appreciably from its prior", which was never checked against
+# the fit and is not true of any fit in this repository.
+#   shift  -- change in mean, expressed in prior SDs
+#   narrow -- 1 - sd(posterior)/sd(prior), the share of prior spread the data removed
+# unname() first: PRIOR_PI["a"] carries the name "a", and c(m = <named>) builds
+# "m.a" rather than "m", so p[["m"]] below would fail.
+bmom <- function(a, b) {
+  a <- unname(a)
+  b <- unname(b)
+  c(m = a / (a + b), s = sqrt(a * b / ((a + b)^2 * (a + b + 1))))
+}
+movement <- function(nm, a, b) {
+  p <- bmom(a, b)
+  x <- mat[, nm]
+  list(shift = (mean(x) - p[["m"]]) / p[["s"]], narrow = 1 - sd(x) / p[["s"]])
+}
+MOVE <- list(
+  pi = movement("pi_rec", PRIOR_PI["a"], PRIOR_PI["b"]),
+  kap = movement("kappa", PRIOR_KAPPA["a"], PRIOR_KAPPA["b"])
+)
 ```
 
 ::: {.callout-important appearance="simple"}
-The counts inform the **level** of recruitment but not its **timing**. `pi_rec`
-moves appreciably from its prior; `kappa` barely moves. The age-1 versus age-2
-split therefore rests entirely on the chick histories, not on the count data —
-18 returning birds across two eras, of which the 1997 cohort alone supplies
-seven (see [Caveats]).
+**The counts carry almost no information about recruitment, and none about its
+timing.** Both posteriors sit essentially on top of their priors. `pi_rec` moves
+`r sprintf("%+.2f", MOVE$pi$shift)` prior standard deviations and the data remove
+about `r sprintf("%.0f%%", 100 * MOVE$pi$narrow)` of its prior spread — a little
+information about the recruitment *level*, but not much. `kappa` moves
+`r sprintf("%+.2f", MOVE$kap$shift)` prior SDs and its interval is
+`r if (abs(MOVE$kap$narrow) < 0.02) "unchanged to the nearest percent" else sprintf("narrowed by %.0f%%", 100 * MOVE$kap$narrow)`:
+the age-1 versus age-2 split is exactly what the chick analysis put in.
+
+So the recruitment estimates in @tbl-recruit should be read as the chick
+histories' answer, lightly updated, not as something the count data established.
+That matters because those histories are thin — 18 returning birds across two
+eras, of which the 1997 cohort alone supplies seven (see [Caveats]) — and because
+recruitment and immigration enter λ additively, so what the counts cannot
+separate is absorbed by `omega`.
 :::
 
 

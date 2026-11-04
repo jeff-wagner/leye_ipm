@@ -318,10 +318,15 @@ while λ barely moved (0.966 → 0.965, arithmetic-mean λ as reported at the ti
 note on the two λ summaries below). The trajectory is robust; the *attribution* is not,
 and it depends on which era the recruitment prior comes from.
 
-**The counts inform recruitment level but not timing.** In fitting, `pi_rec` moves
-appreciably from its prior while `kappa` (the age-1 versus age-2 split) does not. The
-recruitment *timing* is therefore driven entirely by the chick histories, and any
-write-up should say so.
+**The counts carry almost no information about recruitment.** Checked against the fit
+rather than assumed, 2026-11-04 — this paragraph previously said `pi_rec` "moves
+appreciably from its prior", which is not true of any fit in this repository. On the
+current fit `pi_rec` shifts −0.07 prior SDs and the data remove ~10% of its prior
+spread; `kappa` (the age-1 versus age-2 split) shifts −0.02 prior SDs and its interval
+is unchanged (0.464 → 0.466 wide). Read the recruitment estimates as the chick
+analysis's answer, lightly updated — not as something the counts established — and say
+so in any write-up. The report quotes these figures inline from the fit so they cannot
+go stale again.
 
 ---
 

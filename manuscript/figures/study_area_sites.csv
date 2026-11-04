@@ -1,33 +1,33 @@
-"id","name","lat","lon","n_survey","n_pos","mean_count"
-1,"Basher Lake 1",61.160679,-149.746183,35,21,1.74
-2,"Bayshore Lake",61.122855,-149.942288,28,5,0.32
-3,"Big Lake-Jordan Lake",61.5469233,-149.8260069,30,1,0.03
-4,"Blueberry Lake",61.162461,-149.911392,30,5,0.37
-5,"Campbell Creek Estuary Natural Area",61.131239,-149.966457,27,10,0.63
-6,"Campbell Tract",61.1669207,-149.7711182,26,4,0.15
-7,"Coastal Refuge",61.178197,-150.036185,18,18,7.78
-8,"Connors Lake",61.1664758,-149.9329519,35,5,0.46
-9,"Earthquake Bog_leye crew",61.1931,-149.981,17,11,2.35
-10,"Eklutna Power Plant Tailrace (Old Glenn Hwy)",61.4770301,-149.1521931,37,21,1.05
-11,"Fish Lake-JBER",61.272677,-149.808659,21,4,0.29
-12,"Helen Louise McDowell Sanctuary",61.183701,-149.857345,37,0,0
-13,"Hillberg Lake",61.2763,-149.82732,33,9,0.39
-14,"Intersection of Lake Hood Drive and Helio Place ('Moose Alley')",61.189433,-149.982042,29,19,1.1
-15,"Johns Park",61.1058178,-149.8812819,39,24,3.79
-16,"Kincaid Ponds",61.166152,-150.059663,16,7,1.06
-17,"Lower Sixmile Lake",61.290725,-149.812534,30,21,1.1
-18,"Lynn Fuller's Ponds",61.64319,-149.01703,25,2,0.08
-19,"Oceanview Ghost Forest",61.098735,-149.878933,19,19,5.16
-20,"Oceanview Bluff Park",61.0993507,-149.8614823,35,16,0.86
-21,"Otter Lake West (small)",61.28489,-149.74925,25,19,2.36
-22,"Palmer Hay Flats SGR - Cottonwood Creek Access",61.50747,-149.56323,28,18,3.11
-23,"Palmer Hay Flats SGR - Reflections Lake",61.4860865,-149.2568207,35,29,4.11
-24,"Potter Marsh S pullout (MP A11.3 Seward Hwy)",61.059303,-149.8041415,30,14,0.73
-25,"Potter Marsh-Boardwalk (MP A9.5 Seward Hwy)",61.0776738,-149.8256367,38,22,1.53
-26,"Raspberry Meadows",61.1614,-150.007152,8,7,2.25
-27,"Sand Lake",61.152024,-149.965956,27,0,0
-28,"Taku Lake",61.1507424,-149.8810351,36,0,0
-29,"Tony Knowles Coastal Trail--Chester Creek to Fish Creek",61.2062193,-149.9313426,38,20,1.08
-30,"Upper Sixmile Lake",61.284472,-149.771413,33,3,0.09
-31,"Waldron Pond",61.1785189,-149.8518419,32,8,0.34
-32,"Westchester Lagoon",61.2059712,-149.9211502,38,21,1.32
+"id","name","lat","lon","n_survey","n_pos","mean_count","fitted"
+1,"Basher Lake 1",61.160679,-149.746183,35,21,1.74,TRUE
+2,"Bayshore Lake",61.122855,-149.942288,28,5,0.32,TRUE
+3,"Big Lake-Jordan Lake",61.5469233,-149.8260069,30,1,0.03,FALSE
+4,"Blueberry Lake",61.162461,-149.911392,30,5,0.37,TRUE
+5,"Campbell Creek Estuary Natural Area",61.131239,-149.966457,27,10,0.63,TRUE
+6,"Campbell Tract",61.1669207,-149.7711182,26,4,0.15,TRUE
+7,"Coastal Refuge",61.178197,-150.036185,18,18,7.78,TRUE
+8,"Connors Lake",61.1664758,-149.9329519,35,5,0.46,TRUE
+9,"Earthquake Bog_leye crew",61.1931,-149.981,17,11,2.35,TRUE
+10,"Eklutna Power Plant Tailrace (Old Glenn Hwy)",61.4770301,-149.1521931,37,21,1.05,FALSE
+11,"Fish Lake-JBER",61.272677,-149.808659,21,4,0.29,TRUE
+12,"Helen Louise McDowell Sanctuary",61.183701,-149.857345,37,0,0,TRUE
+13,"Hillberg Lake",61.2763,-149.82732,33,9,0.39,TRUE
+14,"Intersection of Lake Hood Drive and Helio Place ('Moose Alley')",61.189433,-149.982042,29,19,1.1,TRUE
+15,"Johns Park",61.1058178,-149.8812819,39,24,3.79,TRUE
+16,"Kincaid Ponds",61.166152,-150.059663,16,7,1.06,TRUE
+17,"Lower Sixmile Lake",61.290725,-149.812534,30,21,1.1,TRUE
+18,"Lynn Fuller's Ponds",61.64319,-149.01703,25,2,0.08,FALSE
+19,"Oceanview Ghost Forest",61.098735,-149.878933,19,19,5.16,TRUE
+20,"Oceanview Bluff Park",61.0993507,-149.8614823,35,16,0.86,TRUE
+21,"Otter Lake West (small)",61.28489,-149.74925,25,19,2.36,TRUE
+22,"Palmer Hay Flats SGR - Cottonwood Creek Access",61.50747,-149.56323,28,18,3.11,FALSE
+23,"Palmer Hay Flats SGR - Reflections Lake",61.4860865,-149.2568207,35,29,4.11,FALSE
+24,"Potter Marsh S pullout (MP A11.3 Seward Hwy)",61.059303,-149.8041415,30,14,0.73,TRUE
+25,"Potter Marsh-Boardwalk (MP A9.5 Seward Hwy)",61.0776738,-149.8256367,38,22,1.53,TRUE
+26,"Raspberry Meadows",61.1614,-150.007152,8,7,2.25,TRUE
+27,"Sand Lake",61.152024,-149.965956,27,0,0,TRUE
+28,"Taku Lake",61.1507424,-149.8810351,36,0,0,TRUE
+29,"Tony Knowles Coastal Trail--Chester Creek to Fish Creek",61.2062193,-149.9313426,38,20,1.08,TRUE
+30,"Upper Sixmile Lake",61.284472,-149.771413,33,3,0.09,TRUE
+31,"Waldron Pond",61.1785189,-149.8518419,32,8,0.34,TRUE
+32,"Westchester Lagoon",61.2059712,-149.9211502,38,21,1.32,TRUE

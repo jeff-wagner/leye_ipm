@@ -6,6 +6,8 @@
 #
 # Writes manuscript/figures/study_area.png / .pdf and a transparent talk
 # variant, all from one body() so the manuscript and the slide cannot drift.
+# A second set, study_area_bowl*, draws only the Anchorage bowl wetlands the
+# IPM fits -- the five distant ones are left off rather than greyed out.
 #
 # THREE PANELS
 #   A  regional -- upper Cook Inlet, all 32 volunteer survey wetlands, with the
@@ -94,6 +96,30 @@ write.csv(sites[, c("id", "name", "lat", "lon")], SITES_CSV, row.names = FALSE)
 YRS <- range(cnt$year)
 ZERO <- sites$n_pos == 0
 
+# Which wetlands the IPM actually fits. Panel A shows the whole volunteer survey,
+# but the model's count stream is the Anchorage bowl, so the five it leaves out
+# are drawn differently -- a map of 32 undifferentiated dots beside a model
+# fitted to 27 of them invites exactly the wrong reading. Taken from LEYE_IPM.R
+# rather than restated here, so the figure cannot disagree with the model.
+DISTANT <- local({
+  e <- new.env()
+  assign("SKIP_RUN", TRUE, envir = e)
+  ok <- tryCatch(
+    {
+      suppressMessages(sys.source("scripts/LEYE_IPM.R", envir = e))
+      TRUE
+    },
+    error = function(e) FALSE
+  )
+  if (ok && exists("IPM_DISTANT_WETLANDS", envir = e)) {
+    get("IPM_DISTANT_WETLANDS", envir = e)
+  } else {
+    message("Could not read IPM_DISTANT_WETLANDS from LEYE_IPM.R; drawing all sites as fitted.")
+    integer(0)
+  }
+})
+OUT_OF_SCOPE <- sites$id %in% DISTANT
+
 ## ---------------------------------------------------------------------------
 ## Geometry -- everything is drawn in Alaska Albers (EPSG:3338)
 ## ---------------------------------------------------------------------------
@@ -170,41 +196,51 @@ draw_base <- function(w, shore_lwd = 1.1, water = WATER, land = LAND) {
   invisible(list(x = u[1:2], y = u[3:4]))
 }
 
-draw_sites <- function(cx = 1, numbers = FALSE, nudge = NULL) {
+draw_sites <- function(cx = 1, numbers = FALSE, nudge = NULL, bowl_only = FALSE, tx = 1) {
   r <- RAD(sites$mean_count) * cx
-  points(XY[ZERO, 1], XY[ZERO, 2],
+  # Three classes, drawn back to front: surveyed but outside the fitted area,
+  # fitted but never occupied, fitted and occupied.
+  out <- OUT_OF_SCOPE
+  if (!bowl_only) {
+    points(XY[out, 1], XY[out, 2],
+      pch = 21, bg = fade(GRY, .45),
+      col = "white", lwd = 1.3, cex = r[out]
+    )
+  }
+  points(XY[ZERO & !out, 1], XY[ZERO & !out, 2],
     pch = 21, bg = "white",
     col = GRY, lwd = 1.8, cex = 1.1 * cx
   )
-  points(XY[!ZERO, 1], XY[!ZERO, 2],
+  points(XY[!ZERO & !out, 1], XY[!ZERO & !out, 2],
     pch = 21, bg = fade(BLU, .55),
-    col = "white", lwd = 1.3, cex = r[!ZERO]
+    col = "white", lwd = 1.3, cex = r[!ZERO & !out]
   )
   if (numbers) {
     off <- if (is.null(nudge)) matrix(0, nrow(XY), 2) else nudge
-    text(XY[, 1] + off[, 1], XY[, 2] + off[, 2], sites$id,
-      cex = .78 * cx, font = 2, col = INK
+    lab <- if (bowl_only) !out else rep(TRUE, nrow(XY))
+    text(XY[lab, 1] + off[lab, 1], XY[lab, 2] + off[lab, 2], sites$id[lab],
+      cex = .78 * cx * tx, font = 2, col = INK
     )
   }
 }
 
 # True north, not grid north: EPSG:3338 is centred on 154 W, so the meridians
 # lean by about 4 degrees here and an arrow drawn straight up would be wrong.
-north_arrow <- function(x, y, len) {
+north_arrow <- function(x, y, len, tx = 1) {
   p <- ll2xy(c(-149.6, -149.6), c(61.2, 61.4))
   b <- atan2(p[2, 1] - p[1, 1], p[2, 2] - p[1, 2])
   dx <- sin(b) * len
   dy <- cos(b) * len
   arrows(x, y, x + dx, y + dy, length = .11, lwd = 2.6, col = INK)
-  text(x + dx * 1.26, y + dy * 1.26, "N", cex = 1.0, font = 2, col = INK)
+  text(x + dx * 1.26, y + dy * 1.26, "N", cex = 1.0 * tx, font = 2, col = INK)
 }
 
-scale_bar <- function(x, y, km, h) {
+scale_bar <- function(x, y, km, h, tx = 1) {
   m <- km * 1000
   rect(x, y, x + m / 2, y + h, col = INK, border = INK)
   rect(x + m / 2, y, x + m, y + h, col = "white", border = INK)
   text(c(x, x + m), y - h * 1.1, c("0", paste(km, "km")),
-    adj = c(.5, 1), cex = .85, col = INK
+    adj = c(.5, 1), cex = .85 * tx, col = INK
   )
 }
 
@@ -225,7 +261,11 @@ ak <- tryCatch(
   error = function(e) NULL
 )
 
-draw_locator <- function(bg) {
+# `w` is the extent to box on the locator; a box only a few kilometres across
+# would vanish at Alaska scale, so it is drawn at least `min_km` across.
+draw_locator <- function(bg, w = W_REG, label = "study area", min_km = 60, tx = 1) {
+  half <- function(r) max(diff(r), min_km * 1000) / 2
+  w <- list(x = mean(w$x) + c(-1, 1) * half(w$x), y = mean(w$y) + c(-1, 1) * half(w$y))
   if (is.null(ak)) {
     plot.new()
     return(invisible())
@@ -236,16 +276,16 @@ draw_locator <- function(bg) {
     xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
   )
   plot(ak, col = LAND_T, border = SHORE, lwd = .7, add = TRUE)
-  rect(W_REG$x[1], W_REG$y[1], W_REG$x[2], W_REG$y[2],
+  rect(w$x[1], w$y[1], w$x[2], w$y[2],
     border = VER, lwd = 2.4, col = fade(VER, .18)
   )
-  text(mean(W_REG$x), W_REG$y[1] - (b$ymax - b$ymin) * .085,
-    "study area",
-    col = VER, font = 2, cex = .95, adj = c(.5, 1)
+  text(mean(w$x), w$y[1] - (b$ymax - b$ymin) * .085,
+    label,
+    col = VER, font = 2, cex = .95 * tx, adj = c(.5, 1)
   )
   text(b$xmin + (b$xmax - b$xmin) * .16, b$ymin + (b$ymax - b$ymin) * .80,
     "ALASKA",
-    col = MID, cex = 1.0, font = 2
+    col = MID, cex = 1.0 * tx, font = 2
   )
 }
 
@@ -289,6 +329,11 @@ NUDGE <- local({
 ## ---------------------------------------------------------------------------
 ## Figure
 ## ---------------------------------------------------------------------------
+place <- function(lon, lat, lab, col = MID, cex = .92, font = 3, srt = 0) {
+  p <- ll2xy(lon, lat)
+  text(p[1], p[2], lab, col = col, cex = cex, font = font, srt = srt)
+}
+
 body <- function(bg) {
   op <- par(bg = bg, family = "sans", col.axis = MID, col.lab = INK, fg = MID)
   on.exit(par(op))
@@ -336,10 +381,6 @@ body <- function(bg) {
   )
   draw_sites()
 
-  place <- function(lon, lat, lab, col = MID, cex = .92, font = 3, srt = 0) {
-    p <- ll2xy(lon, lat)
-    text(p[1], p[2], lab, col = col, cex = cex, font = font, srt = srt)
-  }
   # Placed off the panel's own window rather than a lon/lat: the only open
   # water left of the panel B box moves with the aspect fit, and a fixed
   # coordinate here lands under the box or off the edge.
@@ -361,8 +402,8 @@ body <- function(bg) {
     cex = 1.15, font = 2, col = INK
   )
   mtext(sprintf(
-    "32 volunteer-surveyed wetlands, %d–%d   |   bubble area = mean Lesser Yellowlegs per survey   |   hollow = never detected",
-    YRS[1], YRS[2]
+    "%d wetlands surveyed %d–%d, %d fitted by the IPM   |   bubble area = mean Lesser Yellowlegs per survey",
+    nrow(sites), YRS[1], YRS[2], sum(!OUT_OF_SCOPE)
   ), side = 3, line = 0.05, adj = 0, cex = .82, col = MID)
 
   # Bubble key, on the empty Susitna-side land at the top left: the only part
@@ -379,35 +420,131 @@ body <- function(bg) {
     "birds / survey",
     cex = .85, col = MID, font = 2, adj = 0
   )
+  # The two symbol classes that are not about abundance. In the key rather than
+  # the subtitle, which has no room for them and ran into panel B's.
+  sy <- wA$y[2] - diff(wA$y) * c(.325, .375)
+  points(kx, sy[1], pch = 21, bg = "white", col = GRY, lwd = 1.8, cex = 1.1)
+  points(kx, sy[2], pch = 21, bg = fade(GRY, .45), col = "white", lwd = 1.3, cex = 1.9)
+  text(rep(kx, 2) + diff(wA$x) * .050, sy,
+    c("never detected", "not fitted"),
+    cex = .8, col = MID, adj = 0
+  )
+}
+
+## ---------------------------------------------------------------------------
+## Bowl-only variant
+##
+## The 27 wetlands the IPM fits, with the five distant ones left off entirely.
+## Without them the regional panel is mostly empty land, so this version drops
+## it: the Anchorage bowl becomes the main map (numbered, with its own key),
+## and the locator boxes the ground that map actually shows.
+## ---------------------------------------------------------------------------
+BOWL_CX <- 1.3 # symbol scale on the enlarged map
+BOWL_TX <- 1.15 # text scale: every label, title and key entry on this figure
+BOWL_OMA <- c(1.6, 1.6, 1.2, 1.6) # outer margin (lines) around the whole figure
+
+body_bowl <- function(bg) {
+  op <- par(
+    bg = bg, family = "sans", col.axis = MID, col.lab = INK, fg = MID,
+    oma = BOWL_OMA
+  )
+  on.exit(par(op))
+  land <- if (identical(bg, "transparent")) LAND_T else LAND
+  tx <- BOWL_TX
+  # Column 1 is the map over both rows; column 2 stacks the locator above the
+  # key. The key gets a cell of its own because the bowl has no empty corner
+  # big enough for it that is not also where readers look for sites.
+  layout(matrix(c(1, 1, 2, 3), 2), widths = c(1.75, 1), heights = c(1, 1))
+
+  ## ---- A: Anchorage bowl -------------------------------------------------
+  par(mar = c(0.4, 0.4, 3.0, 1.2))
+  wA <- draw_base(W_BOWL, shore_lwd = 1.3, land = land)
+  # No wetland ID labels on this version: it shows the spread of the fitted
+  # sites, and the three-panel figure carries the numbered key.
+  draw_sites(cx = BOWL_CX, bowl_only = TRUE)
+  text(wA$x[1] + diff(wA$x) * .45, wA$y[1] + diff(wA$y) * .80, "Knik Arm",
+    col = MID, cex = .92 * tx, font = 3, srt = 62
+  )
+  text(wA$x[1] + diff(wA$x) * .13, wA$y[1] + diff(wA$y) * .26, "COOK  INLET",
+    col = MID, cex = 1.0 * tx, font = 3
+  )
+  place(-149.98, 61.055, "Turnagain Arm", srt = -28, cex = .92 * tx)
+  place(-149.80, 61.228, "ANCHORAGE", col = INK, font = 2, cex = 1.0 * tx)
+  scale_bar(wA$x[1] + 1800, wA$y[1] + 2000, 5, diff(wA$y) * .012, tx = tx)
+  north_arrow(wA$x[2] - 2500, wA$y[1] + 2000, diff(wA$y) * .07, tx = tx)
+  mtext("A   Anchorage bowl",
+    side = 3, line = 1.3, adj = 0,
+    cex = 1.15 * tx, font = 2, col = INK
+  )
+  mtext(sprintf(
+    "%d wetlands surveyed %d–%d",
+    sum(!OUT_OF_SCOPE), YRS[1], YRS[2]
+  ), side = 3, line = 0.15, adj = 0, cex = .82 * tx, col = MID)
+
+  ## ---- B: locator --------------------------------------------------------
+  par(mar = c(0.4, 0.4, 3.0, 0.4))
+  draw_locator(bg, w = wA, label = "Anchorage", tx = tx)
+  mtext("B   Location",
+    side = 3, line = 1.3, adj = 0,
+    cex = 1.15 * tx, font = 2, col = INK
+  )
+
+  ## ---- key ---------------------------------------------------------------
+  par(mar = c(0.4, 1.5, 0.4, 0.4))
+  plot.new()
+  plot.window(c(0, 1), c(0, 1))
+  key <- c(1, 4, 8)
+  kx <- .12
+  ky <- c(.74, .60, .43)
+  kt <- 1.25 * tx # the key reads larger than the map labels
+  text(.04, .88, "Mean Lesser Yellowlegs\nper survey (bubble area)",
+    cex = kt, col = INK, font = 2, adj = c(0, .5)
+  )
+  points(rep(kx, 3), ky,
+    pch = 21, bg = fade(BLU, .55), col = "white",
+    lwd = 1.3, cex = RAD(key) * BOWL_CX
+  )
+  text(rep(kx + .12, 3), ky, key, cex = kt, col = MID, adj = 0)
+  points(kx, .27, pch = 21, bg = "white", col = GRY, lwd = 1.8, cex = 1.1 * BOWL_CX)
+  text(kx + .12, .27, "never detected", cex = kt, col = MID, adj = 0)
 }
 
 W <- 1420
 H <- 980
-as_png <- function(f, bg, scale = 1) {
+W_B <- 1240 # the bowl variant: one map column instead of two
+as_png <- function(f, bg, scale = 1, fun = body, w = W) {
   png(f,
-    width = W * scale, height = H * scale, res = 100 * scale,
+    width = w * scale, height = H * scale, res = 100 * scale,
     type = "cairo", bg = bg
   )
   on.exit(invisible(dev.off()))
-  body(bg)
+  fun(bg)
 }
-as_pdf <- function(f) {
-  cairo_pdf(f, width = W / 100, height = H / 100, bg = "transparent")
+as_pdf <- function(f, fun = body, w = W) {
+  cairo_pdf(f, width = w / 100, height = H / 100, bg = "transparent")
   on.exit(invisible(dev.off()))
-  body("transparent")
+  fun("transparent")
 }
 
 dir.create(OUTDIR, showWarnings = FALSE, recursive = TRUE)
-as_png(file.path(OUTDIR, "study_area.png"), DECK_BG)
-as_png(file.path(OUTDIR, "study_area_talk.png"), "transparent", scale = 3)
-as_pdf(file.path(OUTDIR, "study_area.pdf"))
+for (v in list(
+  list(tag = "", fun = body, w = W),
+  list(tag = "_bowl", fun = body_bowl, w = W_B)
+)) {
+  stem <- file.path(OUTDIR, paste0("study_area", v$tag))
+  as_png(paste0(stem, ".png"), DECK_BG, fun = v$fun, w = v$w)
+  as_png(paste0(stem, "_talk.png"), "transparent", scale = 3, fun = v$fun, w = v$w)
+  as_pdf(paste0(stem, ".pdf"), fun = v$fun, w = v$w)
+}
 
 # The site key the panel B numbers refer to.
 key <- sites[, c("id", "name", "lat", "lon", "n_survey", "n_pos", "mean_count")]
 key$mean_count <- round(key$mean_count, 2)
+key$fitted <- !OUT_OF_SCOPE
 write.csv(key, file.path(OUTDIR, "study_area_sites.csv"), row.names = FALSE)
 
 cat(sprintf(
-  "Wrote %s/study_area.{png,pdf}, study_area_talk.png and study_area_sites.csv\n  %d wetlands, %d with no detection in %d-%d\n",
-  OUTDIR, nrow(sites), sum(ZERO), YRS[1], YRS[2]
+  paste0("Wrote %s/study_area{,_bowl}.{png,pdf}, study_area{,_bowl}_talk.png and study_area_sites.csv\n",
+         "  %d wetlands surveyed, %d fitted by the IPM, %d with no detection in %d-%d\n"),
+  OUTDIR, nrow(sites), sum(!OUT_OF_SCOPE), sum(ZERO), YRS[1], YRS[2]
 ))

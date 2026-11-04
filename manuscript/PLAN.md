@@ -146,7 +146,7 @@ dispersal is not separable from mortality here.
 | Recruitment estimates | Now from the **modern era**; the 1990s cohorts still enter via the era comparison and shared detection — **confirmed 2026-11-04** that the 1990s chicks carried colour marks, which is what makes that sharing legitimate. Refitted 2026-09-29 on the real banding totals (122 chicks, 1995–1999) — no conclusion changed |
 | Life-cycle figure and DAG | Done — both label the recruitment prior as the modern estimate, and name both cohorts (133 chicks 2018–25, 122 in 1995–99, with 178 1990s adults) |
 | Novelty check (is this the first LEYE IPM?) | **Not done** |
-| Study area map (F1) | **Done 2026-11-04** — `scripts/fig_study_area.R`, three panels (upper Cook Inlet, Anchorage bowl, Alaska locator) over a full-resolution GSHHG shoreline cached in `data/gis/`. Still missing a mark–resight/nest-site layer: those coordinates are not in the repository. Drawing it **surfaced a confound nobody had recorded** — the count stream covers 67 km while the demographic data cover the Anchorage bowl; tested and resolved below |
+| Study area map (F1) | **Done 2026-11-04** — `scripts/fig_study_area.R`, three panels (upper Cook Inlet, Anchorage bowl, Alaska locator) over a full-resolution GSHHG shoreline cached in `data/gis/`. **In the report** as `@fig-studyarea`, beside the data-sources table, with the five unfitted wetlands drawn grey. Still missing a mark–resight/nest-site layer: those coordinates are not in the repository. Drawing it **surfaced a confound nobody had recorded** — the count stream covered 67 km while the demographic data cover the Anchorage bowl; that is what led to the scope change above |
 | Panel stability | **Tested 2026-11-04.** A nine-wetland balanced panel gives λ 0.950 with the interval crossing 1, on a third of the data and with a 52% wider interval — a bound on how much the claim leans on panel size, not a contradiction. `site_re` now monitored: it tracks observed richness (r = 0.98, slope 0.83), so the panel growing from 13 to 32 wetlands is not leaking abundance into the trend |
 | Priors table (T1) | **Not done** |
 
@@ -392,12 +392,23 @@ Found during the robustness work; all belong in the Methods or Discussion.
   is only valid under the first denominator; it is pinned in code in Section 1B of
   `LEYE_tag_effects_CJS.R` so the manuscript cannot quietly pick up the other one.
 - **Recruitment is prior-driven, and immigration absorbs the difference**
-  (re-checked 2026-11-03 across four prior settings). Under the default prior
-  the posterior barely leaves it: π moves 0.0536 → 0.0513, **−0.0023**, and the
-  interval is essentially unchanged (prior 0.006–0.149, posterior 0.006–0.135).
-  The counts carry almost no independent recruitment signal, and none at all
-  about the age split — under vague priors κ returns 0.484 (0.023–0.971), which
-  *is* Beta(1,1).
+  (re-checked 2026-11-04 on the current fit). Under the default prior the
+  posterior barely leaves it: π moves 0.0536 → **0.0508**, a shift of −0.0028 or
+  **−0.07 prior SD**, and the data remove only ~10% of the prior spread
+  (interval 0.006–0.149 → 0.006–0.134). For κ there is no information at all:
+  a shift of −0.02 prior SD and an interval that stays the same width to three
+  decimals (0.464 → 0.466). Under vague priors κ returns 0.484 (0.023–0.971),
+  which *is* Beta(1,1).
+
+  **The report said the opposite until 2026-11-04.** The callout under the
+  prior-versus-posterior figure claimed `pi_rec` "moves appreciably from its
+  prior", which was never true of any fit in this repository — it was the kind
+  of statement that sounds like it was checked. It and the README's copy are
+  corrected, and the report now computes the shift and the narrowing inline from
+  the fit rather than describing them in words, so the claim cannot drift from
+  the model again. The *direction* of the original point survives — the counts
+  say more about the level than the timing — but "appreciably" was wrong, and
+  the honest summary is that they say very little about either.
 
   λ below is the **geometric** mean across years, the growth rate (see the next
   bullet). The shares are per-capita contributions with their own denominator,
